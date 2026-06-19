@@ -5,7 +5,7 @@
 Antes de iniciar o projeto, certifique-se de ter instalado:
 
 - Docker
-- Python 3.13.5 (ou a versão utilizada pelo projeto)
+- Python 3.13.5 
 
 ---
 
