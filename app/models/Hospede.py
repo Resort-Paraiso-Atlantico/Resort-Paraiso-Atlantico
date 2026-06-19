@@ -1,5 +1,5 @@
 from sqlalchemy import String, DateTime 
-from sqlalchemy.orm import Mapped, mapped_column 
+from sqlalchemy.orm import Mapped, mapped_column, relationship 
 from datetime import datetime
 from models import Base
 
@@ -13,3 +13,5 @@ class Hospede(Base):
     email: Mapped[str] = mapped_column(String(100), unique=True,nullable=False)
     endereco: Mapped[str] = mapped_column(String(200))
     data_cadastro: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    reservas = relationship("Reserva", back_populates="hospede")
