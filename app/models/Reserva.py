@@ -11,7 +11,6 @@ class Reserva(Base):
     __tablename__ = "reservas"
     id_reserva: Mapped[int] = mapped_column(Integer,autoincrement=True,primary_key=True)
     cpf_hospede: Mapped[str] = mapped_column(ForeignKey("hospedes.cpf"))
-    #id_suite: Mapped[str] = mapped_column(ForeignKey("suite.id_suite")) falta fazer suites ainda
     data_reserva: Mapped[date] = mapped_column(Date)
     checkin_previsto: Mapped[date] = mapped_column(Date)
     checkout_previsto: Mapped[date] = mapped_column(Date)
@@ -19,3 +18,4 @@ class Reserva(Base):
     valor_total: Mapped[float] = mapped_column(Float)
 
     hospede = relationship("Hospede", back_populates="reservas")
+    suites: Mapped[list["Suite"]] = relationship(back_populates="reserva")
