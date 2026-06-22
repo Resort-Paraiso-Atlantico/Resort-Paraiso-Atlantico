@@ -1,7 +1,7 @@
 from sqlalchemy import String, DateTime 
 from sqlalchemy.orm import Mapped, mapped_column, relationship 
 from datetime import datetime
-from models import Base
+from app.models import Base
 
 #Acharia bom fazer alguma validação em email, telefone e talvez cpf. Mas o chat indica para fazer isso em outra "camada".
 

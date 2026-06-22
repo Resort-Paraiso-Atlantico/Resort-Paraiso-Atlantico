@@ -1,10 +1,6 @@
-from database import engine
+from app.database import engine
+from app.models.Base import Base
 
-from models.Base import Base
-
-# IMPORTANTE:
-# importa o model para o SQLAlchemy registrá-lo
-from models import Hospede
 
 
 def main():

@@ -3,7 +3,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 from sqlalchemy.orm import Mapped, mapped_column 
 from datetime import date, datetime
-from models import Base
+from app.models import Base
 
 #Fiz a alteração que tinha comentado. No documento a relacao era uma reserva-> uma suite. Quando na verdade uma reserva pode ter diversas suites.
 

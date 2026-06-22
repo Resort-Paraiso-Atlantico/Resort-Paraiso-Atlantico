@@ -1,9 +1,9 @@
 # models/__init__.py
-from models.Base import Base
-from models.Hospede import Hospede
-from models.Reserva import Reserva
+from app.models.Base import Base
+from app.models.Hospede import Hospede
+from app.models.Reserva import Reserva
 # conforme for criando novos models, adiciona aqui:
-from models.Suite import Suite
+from app.models.Suite import Suite
 # from models.Reserva import Reserva
 
 #sugestão do chatgpt
