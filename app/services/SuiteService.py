@@ -1,11 +1,22 @@
 from app.models.Suite import Suite
-from app.database import SessionLocal
 
-def criar_suite(numero: int ,tipo: str , capacidade:int,valor_diaria: float,status: str):
+from datetime import date
+from sqlalchemy.orm import Session
+from app.repositories.SuiteRepository import SuiteRepository
 
-    
+class SuiteService:
 
-    try:
+    #fazendo o repository
+    def __init__(self, db: Session):
+        self.repository = SuiteRepository(db)
+
+    def criar_suite(self,numero: int ,tipo: str , capacidade:int,valor_diaria: float,status: str):
+
+        if capacidade <= 0: raise ValueError("Capacidade deve ser no minimo 1.")
+        if valor_diaria <= 0: raise ValueError("Valor da diaria deve ser no minimo 1.")
+
+
+        
         suite = Suite(
         numero= numero,
         tipo=tipo,
@@ -14,18 +25,7 @@ def criar_suite(numero: int ,tipo: str , capacidade:int,valor_diaria: float,stat
         status=status,
         )
 
-        db = SessionLocal()
-
-        db.add(suite)
-        db.commit()
-        db.refresh(suite)
-
-        return suite
-    
-    except Exception:
-        db.rollback()
-        raise
-
-    finally:
-        #tem q lembrar de fechar SEMPRE o sessionLocal
-        db.close()
+        return self.repository.criar(suite)
+        
+    def listar_suites(self):
+        return self.repository.listar_todas()

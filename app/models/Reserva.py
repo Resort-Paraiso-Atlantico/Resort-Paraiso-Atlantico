@@ -12,8 +12,8 @@ class Reserva(Base):
     id_reserva: Mapped[int] = mapped_column(Integer,autoincrement=True,primary_key=True)
     cpf_hospede: Mapped[str] = mapped_column(ForeignKey("hospedes.cpf"))
     data_reserva: Mapped[date] = mapped_column(Date)
-    checkin_previsto: Mapped[date] = mapped_column(Date)
-    checkout_previsto: Mapped[date] = mapped_column(Date)
+    checkin_previsto: Mapped[date] = mapped_column(Date,nullable=True)
+    checkout_previsto: Mapped[date] = mapped_column(Date,nullable=True)
     status: Mapped[str] = mapped_column(String(20))
     valor_total: Mapped[float] = mapped_column(Float)
 
