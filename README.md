@@ -58,4 +58,14 @@ pip install -r requirements.txt
 
 ---
 
+## Executando o programa
+
+Execute o comando abaixo na raiz do projeto:
+```bash
+streamlit run main.py
+```
+
+---
+
+
 Se tudo estiver configurado corretamente, o sistema deverá se conectar ao banco PostgreSQL e criar as tabelas definidas pelos modelos da aplicação.
