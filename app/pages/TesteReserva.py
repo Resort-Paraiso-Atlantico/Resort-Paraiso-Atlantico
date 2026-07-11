@@ -5,6 +5,10 @@ from app.services.ReservaService import ReservaService
 from app.models.Suite import Suite
 from app.models.Reserva import Reserva
 
+if not st.user.is_logged_in:
+    st.error("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 st.title("Reservas")
 
 tab_criar, tab_listar, tab_suites = st.tabs(["Nova Reserva", "Listar Reservas", "Vincular Suítes"])

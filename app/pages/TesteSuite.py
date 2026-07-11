@@ -2,6 +2,10 @@ import streamlit as st
 from app.database import SessionLocal
 from app.services.SuiteService import SuiteService
 
+if not st.user.is_logged_in:
+    st.error("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 st.title("Suítes")
 
 tab_criar, tab_listar = st.tabs(["Cadastrar Suíte", "Listar Suítes"])
