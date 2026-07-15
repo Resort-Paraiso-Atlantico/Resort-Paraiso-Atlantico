@@ -2,7 +2,8 @@ import streamlit as st
 from datetime import date
 from app.database import SessionLocal
 from app.services.ReservaService import ReservaService
-from app.models.Suite import Suite
+from app.services.ReservaSuiteService import ReservaSuiteService
+from app.services.SuiteService import SuiteService
 from app.models.Reserva import Reserva
 
 if not st.user.is_logged_in:
@@ -26,7 +27,6 @@ with tab_criar:
         with col2:
             checkout = st.date_input("Check-out previsto", min_value=date.today())
 
-        valor_total = st.number_input("Valor total (R$)", min_value=0.0, step=50.0, format="%.2f")
         status = st.selectbox("Status", ["Pendente", "Confirmada", "Cancelada"])
 
         submitted = st.form_submit_button("Criar Reserva", use_container_width=True)
@@ -44,7 +44,6 @@ with tab_criar:
                         cpf_hospede=cpf_hospede.strip(),
                         checkin_previsto=checkin,
                         checkout_previsto=checkout,
-                        valor_total=valor_total,
                         status=status,
                     )
                 st.success(f"Reserva #{reserva.id_reserva} criada com sucesso!")
@@ -77,7 +76,8 @@ with tab_listar:
                         col1, col2, col3 = st.columns(3)
                         col1.metric("Check-in", str(r.checkin_previsto))
                         col2.metric("Check-out", str(r.checkout_previsto))
-                        col3.metric("Valor Total", f"R$ {r.valor_total:,.2f}")
+                        valor = f"R$ {r.valor_total:,.2f}" if r.valor_total is not None else "—"
+                        col3.metric("Valor Total", valor)
                         st.caption(f"Data da reserva: {r.data_reserva}")
         except Exception as e:
             st.error(f"Erro ao buscar reservas: {e}")
@@ -88,7 +88,9 @@ with tab_suites:
 
     with SessionLocal() as db:
         reservas = db.query(Reserva).all()
-        suites = db.query(Suite).all()
+        suite_service = SuiteService(db)
+        reserva_suite_service = ReservaSuiteService(db)
+        suites = suite_service.listar_suites()
 
     if not reservas:
         st.info("Nenhuma reserva cadastrada.")
@@ -102,39 +104,68 @@ with tab_suites:
         reserva_selecionada = st.selectbox("Selecione a reserva", list(opcoes_reserva.keys()))
         id_reserva_alvo = opcoes_reserva[reserva_selecionada]
 
+        with SessionLocal() as db:
+            reserva_suite_service = ReservaSuiteService(db)
+            vinculos_da_reserva = reserva_suite_service.listar_por_reserva(id_reserva_alvo)
+
+        vinculos_ativos = [v for v in vinculos_da_reserva if v.data_saida is None]
+        ids_suites_vinculadas_ativas = {v.id_suite for v in vinculos_ativos}
+
         st.divider()
         st.markdown("**Suítes disponíveis para vincular**")
 
-        suites_disponiveis = [s for s in suites if s.id_reserva is None or s.id_reserva == id_reserva_alvo]
+        suites_disponiveis = [s for s in suites if s.status == "Disponível"]
 
         if not suites_disponiveis:
             st.warning("Não há suítes disponíveis.")
         else:
             for suite in suites_disponiveis:
-                col1, col2, col3, col4 = st.columns([1, 2, 2, 2])
+                col1, col2, col3, col4, col5 = st.columns([1, 2, 2, 2, 1])
                 col1.write(f"**Nº {suite.numero}**")
                 col2.write(f"{suite.tipo} · {suite.capacidade} pax")
                 col3.write(f"R$ {suite.valor_diaria:,.2f}/dia")
+                data_entrada = col4.date_input(
+                    "Entrada", value=date.today(), key=f"entrada_{suite.id_suite}", label_visibility="collapsed"
+                )
 
-                ja_vinculada = suite.id_reserva == id_reserva_alvo
-                label = "Desvincular" if ja_vinculada else "Vincular"
-
-                if col4.button(label, key=f"btn_{suite.id_suite}"):
+                if col5.button("Vincular", key=f"btn_vincular_{suite.id_suite}"):
                     try:
                         with SessionLocal() as db:
-                            s = db.get(Suite, suite.id_suite)
-                            s.id_reserva = None if ja_vinculada else id_reserva_alvo
-                            db.commit()
+                            service = ReservaSuiteService(db)
+                            service.vincular_reserva_suite(
+                                id_reserva=id_reserva_alvo,
+                                id_suite=suite.id_suite,
+                                data_entrada=data_entrada,
+                            )
                         st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))
                     except Exception as e:
                         st.error(f"Erro: {e}")
 
         st.divider()
         st.markdown("**Suítes vinculadas a esta reserva**")
 
-        vinculadas = [s for s in suites if s.id_reserva == id_reserva_alvo]
-        if not vinculadas:
+        if not vinculos_ativos:
             st.info("Nenhuma suíte vinculada ainda.")
         else:
-            for s in vinculadas:
-                st.write(f"🛏️ Nº {s.numero} — {s.tipo} · {s.capacidade} pax · R$ {s.valor_diaria:,.2f}/dia")
+            for vinculo in vinculos_ativos:
+                suite = vinculo.suite
+                col1, col2, col3, col4, col5 = st.columns([1, 2, 2, 2, 1])
+                col1.write(f"🛏️ Nº {suite.numero}")
+                col2.write(f"{suite.tipo} · {suite.capacidade} pax")
+                col3.write(f"R$ {vinculo.valor_diaria:,.2f}/dia · desde {vinculo.data_entrada}")
+                data_saida = col4.date_input(
+                    "Saída", value=date.today(), key=f"saida_{vinculo.id}", label_visibility="collapsed"
+                )
+
+                if col5.button("Desvincular", key=f"btn_desvincular_{vinculo.id}"):
+                    try:
+                        with SessionLocal() as db:
+                            service = ReservaSuiteService(db)
+                            service.registrar_saida(vinculo.id, data_saida)
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))
+                    except Exception as e:
+                        st.error(f"Erro: {e}")

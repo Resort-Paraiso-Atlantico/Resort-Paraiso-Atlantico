@@ -1,3 +1,4 @@
+# TesteSuite.py
 import streamlit as st
 from app.database import SessionLocal
 from app.services.SuiteService import SuiteService
@@ -64,7 +65,6 @@ with tab_listar:
                     "Capacidade": s.capacidade,
                     "Diária (R$)": s.valor_diaria,
                     "Status": s.status,
-                    "Reserva": s.id_reserva,
                 }
                 for s in suites
             ]
