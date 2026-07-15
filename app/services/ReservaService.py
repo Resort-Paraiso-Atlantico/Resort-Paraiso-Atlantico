@@ -15,13 +15,9 @@ class ReservaService:
         cpf_hospede: str,
         checkin_previsto: date,
         checkout_previsto: date,
-        valor_total: float,
         status: str = "Pendente"):
         if checkin_previsto >= checkout_previsto:
             raise ValueError("A data de check-in deve ser anterior ao check-out.")
-
-        if valor_total < 0:
-            raise ValueError("O valor total não pode ser negativo.")
 
         reserva = Reserva(
             cpf_hospede=cpf_hospede,
@@ -29,7 +25,6 @@ class ReservaService:
             checkin_previsto=checkin_previsto,
             checkout_previsto=checkout_previsto,
             status=status,
-            valor_total=valor_total,
         )
         return self.repository.criar(reserva)
 

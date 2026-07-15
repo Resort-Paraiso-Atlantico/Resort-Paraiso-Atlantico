@@ -15,3 +15,11 @@ class SuiteRepository:
 
     def listar_todas(self):
         return self.db.query(Suite).all()
+    
+    def buscar_por_id(self, id_suite: int) -> Suite | None:
+        return self.db.get(Suite, id_suite)
+    
+    def atualizar(self, suite: Suite) -> Suite:
+        self.db.commit()
+        self.db.refresh(suite)
+        return suite
