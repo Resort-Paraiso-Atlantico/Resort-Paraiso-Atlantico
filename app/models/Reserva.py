@@ -5,8 +5,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from datetime import date, datetime
 from app.models import Base
 
-#Fiz a alteração que tinha comentado. No documento a relacao era uma reserva-> uma suite. Quando na verdade uma reserva pode ter diversas suites.
-
 class Reserva(Base):
     __tablename__ = "reservas"
     id_reserva: Mapped[int] = mapped_column(Integer,autoincrement=True,primary_key=True)
@@ -15,7 +13,9 @@ class Reserva(Base):
     checkin_previsto: Mapped[date] = mapped_column(Date,nullable=True)
     checkout_previsto: Mapped[date] = mapped_column(Date,nullable=True)
     status: Mapped[str] = mapped_column(String(20))
-    valor_total: Mapped[float] = mapped_column(Float)
+    valor_total: Mapped[float] = mapped_column(Float,nullable=True)
 
     hospede = relationship("Hospede", back_populates="reservas")
-    suites: Mapped[list["Suite"]] = relationship(back_populates="reserva")
+
+    reserva_suites: Mapped[list["ReservaSuite"]] = relationship(back_populates="reserva")
+    
