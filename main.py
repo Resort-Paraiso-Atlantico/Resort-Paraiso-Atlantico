@@ -20,5 +20,6 @@ with col3:
 pg = st.navigation([
     st.Page("app/pages/TesteSuite.py", title="Suítes", icon="🛏️"),
     st.Page("app/pages/TesteReserva.py", title="Reservas", icon="📋"),
+    st.Page("app/pages/TesteHospede.py", title="Hóspedes", icon= "👤"),
 ])
 pg.run()
