@@ -15,7 +15,12 @@ class Reserva(Base):
     status: Mapped[str] = mapped_column(String(20))
     valor_total: Mapped[float] = mapped_column(Float,nullable=True)
 
+    # Datas reais (auditoria/rastreabilidade do check-in e check-out)
+    checkin_realizado: Mapped[date] = mapped_column(Date, nullable=True)
+    checkout_realizado: Mapped[date] = mapped_column(Date, nullable=True)
+    checkin_por: Mapped[str] = mapped_column(String(120), nullable=True)
+    checkout_por: Mapped[str] = mapped_column(String(120), nullable=True)
+
     hospede = relationship("Hospede", back_populates="reservas")
 
     reserva_suites: Mapped[list["ReservaSuite"]] = relationship(back_populates="reserva")
-    

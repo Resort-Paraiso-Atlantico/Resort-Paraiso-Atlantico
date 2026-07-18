@@ -2,12 +2,14 @@
 import streamlit as st
 from app.database import SessionLocal
 from app.services.SuiteService import SuiteService
+from app.theme import aplicar_tema, cabecalho, badge_status
 
 if not st.user.is_logged_in:
     st.error("Você precisa estar logado para acessar esta página.")
     st.stop()
 
-st.title("Suítes")
+aplicar_tema()
+cabecalho("Suítes", "Cadastre e acompanhe os quartos do resort", "🛏️")
 
 tab_criar, tab_listar = st.tabs(["Cadastrar Suíte", "Listar Suítes"])
 
@@ -57,17 +59,20 @@ with tab_listar:
         if not suites:
             st.info("Nenhuma suíte encontrada.")
         else:
-            dados = [
-                {
-                    "ID": s.id_suite,
-                    "Número": s.numero,
-                    "Tipo": s.tipo,
-                    "Capacidade": s.capacidade,
-                    "Diária (R$)": s.valor_diaria,
-                    "Status": s.status,
-                }
-                for s in suites
-            ]
-            st.dataframe(dados, use_container_width=True)
+            cols = st.columns(2)
+            for i, s in enumerate(suites):
+                with cols[i % 2]:
+                    st.markdown(
+                        f"""
+                        <div class="resort-suite-card">
+                            <span class="resort-suite-number">Suíte nº {s.numero}</span>
+                            &nbsp;{badge_status(s.status)}
+                            <div class="resort-suite-meta">
+                                {s.tipo} · {s.capacidade} pax · R$ {s.valor_diaria:,.2f}/diária
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
     except Exception as e:
         st.error(f"Erro ao buscar suítes: {e}")

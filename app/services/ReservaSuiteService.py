@@ -65,7 +65,15 @@ class ReservaSuiteService:
             raise ValueError("Data de saída não pode ser anterior à data de entrada.")
 
         reserva_suite.data_saida = data_saida
-        return self.repository.atualizar(reserva_suite)
+        reserva_suite = self.repository.atualizar(reserva_suite)
+
+        # Libera a suíte de volta para uso em outras reservas
+        suite = self.suite_repository.buscar_por_id(reserva_suite.id_suite)
+        if suite:
+            suite.status = "Disponível"
+            self.suite_repository.atualizar(suite)
+
+        return reserva_suite
     
     def calcular_valor_estadia(self, id: int) -> float:
         reserva_suite = self.repository.buscar_por_id(id)
@@ -81,5 +89,27 @@ class ReservaSuiteService:
             diarias = 1
 
         return diarias * reserva_suite.valor_diaria
-        
 
+    def calcular_valor_total_reserva(self, id_reserva: int) -> float:
+        """Soma o valor de todas as suítes (vínculos) já ligadas a uma reserva."""
+        if id_reserva is None:
+            raise ValueError("Deve ter id da reserva.")
+
+        vinculos = self.repository.listar_por_reserva(id_reserva)
+        if not vinculos:
+            raise ValueError(f"Nenhuma suíte vinculada à reserva #{id_reserva}.")
+
+        return sum(self.calcular_valor_estadia(v.id) for v in vinculos)
+
+    def corrigir_data_entrada(self, id: int, nova_data_entrada: date) -> ReservaSuite:
+        """Corrige a data de entrada de um vínculo (ex: erro de digitação)."""
+        reserva_suite = self.repository.buscar_por_id(id)
+
+        if reserva_suite is None:
+            raise ValueError("Vínculo Reserva-Suite não encontrado.")
+
+        if reserva_suite.data_saida is not None and nova_data_entrada > reserva_suite.data_saida:
+            raise ValueError("Data de entrada não pode ser posterior à data de saída já registrada.")
+
+        reserva_suite.data_entrada = nova_data_entrada
+        return self.repository.atualizar(reserva_suite)

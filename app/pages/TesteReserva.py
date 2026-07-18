@@ -5,12 +5,14 @@ from app.services.ReservaService import ReservaService
 from app.services.ReservaSuiteService import ReservaSuiteService
 from app.services.SuiteService import SuiteService
 from app.models.Reserva import Reserva
+from app.theme import aplicar_tema, cabecalho, badge_status
 
 if not st.user.is_logged_in:
     st.error("Você precisa estar logado para acessar esta página.")
     st.stop()
 
-st.title("Reservas")
+aplicar_tema()
+cabecalho("Reservas", "Crie reservas e vincule suítes aos hóspedes", "📋")
 
 tab_criar, tab_listar, tab_suites = st.tabs(["Nova Reserva", "Listar Reservas", "Vincular Suítes"])
 
@@ -72,13 +74,52 @@ with tab_listar:
                 st.info("Nenhuma reserva encontrada.")
             else:
                 for r in reservas:
-                    with st.expander(f"Reserva #{r.id_reserva} — {r.cpf_hospede} — {r.status}"):
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("Check-in", str(r.checkin_previsto))
-                        col2.metric("Check-out", str(r.checkout_previsto))
-                        valor = f"R$ {r.valor_total:,.2f}" if r.valor_total is not None else "—"
-                        col3.metric("Valor Total", valor)
-                        st.caption(f"Data da reserva: {r.data_reserva}")
+                    valor_texto = f"R$ {r.valor_total:,.2f}" if r.valor_total is not None else "—"
+                    st.markdown(
+                        f"""
+                        <div class="resort-suite-card">
+                            <span class="resort-suite-number">Reserva #{r.id_reserva}</span>
+                            &nbsp;{badge_status(r.status)}
+                            <div class="resort-suite-meta">
+                                Hóspede: {r.cpf_hospede} · {r.checkin_previsto} → {r.checkout_previsto}
+                                · Valor: {valor_texto}
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                    col_a, col_b, col_c = st.columns(3)
+
+                    if r.status == "Pendente":
+                        if col_a.button("✅ Confirmar pagamento", key=f"confirmar_{r.id_reserva}", use_container_width=True):
+                            try:
+                                with SessionLocal() as db:
+                                    ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Confirmada")
+                                st.success(f"Reserva #{r.id_reserva} confirmada!")
+                                st.rerun()
+                            except ValueError as e:
+                                st.error(str(e))
+
+                    elif r.status == "Confirmada":
+                        if col_a.button("↩️ Reverter p/ Pendente", key=f"reverter_{r.id_reserva}", use_container_width=True):
+                            try:
+                                with SessionLocal() as db:
+                                    ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Pendente")
+                                st.success(f"Reserva #{r.id_reserva} voltou para Pendente.")
+                                st.rerun()
+                            except ValueError as e:
+                                st.error(str(e))
+
+                    if r.status in ("Pendente", "Confirmada"):
+                        if col_b.button("🚫 Cancelar reserva", key=f"cancelar_{r.id_reserva}", use_container_width=True):
+                            try:
+                                with SessionLocal() as db:
+                                    ReservaService(db).cancelar_reserva(r.id_reserva)
+                                st.success(f"Reserva #{r.id_reserva} cancelada.")
+                                st.rerun()
+                            except ValueError as e:
+                                st.error(str(e))
         except Exception as e:
             st.error(f"Erro ao buscar reservas: {e}")
 

@@ -4,12 +4,14 @@ from app.database import SessionLocal
 from app.services.ReservaSuiteService import ReservaSuiteService
 from app.services.SuiteService import SuiteService
 from app.models.Reserva import Reserva
+from app.theme import aplicar_tema, cabecalho
 
 if not st.user.is_logged_in:
     st.error("Você precisa estar logado para acessar esta página.")
     st.stop()
 
-st.title("Reserva-Suíte (Testes)")
+aplicar_tema()
+cabecalho("Reserva ↔ Suíte", "Histórico, valores e correções de vínculos", "🔗")
 
 tab_por_suite, tab_valor_estadia, tab_valor_total, tab_corrigir = st.tabs([
     "Histórico por Suíte",
