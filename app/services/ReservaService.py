@@ -2,6 +2,8 @@ from datetime import date
 from sqlalchemy.orm import Session
 from app.models.Reserva import Reserva
 from app.repositories.ReservaRepository import ReservaRepository
+from app.repositories.ReservaSuiteRepository import ReservaSuiteRepository
+from app.repositories.SuiteRepository import SuiteRepository
 
 
 class ReservaService:
@@ -9,6 +11,8 @@ class ReservaService:
     #fazendo o repository
     def __init__(self, db: Session):
         self.repository = ReservaRepository(db)
+        self.reserva_suite_repository = ReservaSuiteRepository(db)
+        self.suite_repository = SuiteRepository(db)
 
     def criar_reserva(
         self,
@@ -41,4 +45,117 @@ class ReservaService:
         if reserva.status == "Cancelada":
             raise ValueError("Reserva já está cancelada.")
         reserva.status = "Cancelada"
+        return self.repository.atualizar(reserva)
+
+    def atualizar_status_pagamento(self, id_reserva: int, novo_status: str) -> Reserva:
+        """
+        Alterna manualmente entre 'Pendente' e 'Confirmada' — o gatilho do
+        módulo Financeiro até ele existir de verdade. Não permite pular
+        direto para 'Hospedado'/'Finalizada' (isso só pode acontecer via
+        check-in/check-out) nem mexer numa reserva já cancelada/finalizada.
+        """
+        if novo_status not in ("Pendente", "Confirmada"):
+            raise ValueError(
+                "Só é permitido alternar manualmente entre 'Pendente' e 'Confirmada'."
+            )
+
+        reserva = self.repository.buscar_por_id(id_reserva)
+        if not reserva:
+            raise ValueError(f"Reserva #{id_reserva} não encontrada.")
+
+        if reserva.status not in ("Pendente", "Confirmada"):
+            raise ValueError(
+                f"Não é possível alterar manualmente uma reserva com status '{reserva.status}'."
+            )
+
+        reserva.status = novo_status
+        return self.repository.atualizar(reserva)
+
+    def fazer_checkin(self, id_reserva: int, usuario: str) -> tuple[Reserva, str | None]:
+        """
+        Regra do documento: check-in só pode ocorrer após confirmação financeira.
+        Por enquanto usamos o status "Confirmada" da própria reserva como sinal
+        dessa confirmação (ainda não existe módulo Financeiro separado).
+
+        Regra de data: não é permitido check-in antes da data prevista.
+        Check-in em atraso é permitido, mas retorna um aviso.
+
+        Retorna uma tupla (reserva_atualizada, aviso_ou_None).
+        """
+        reserva = self.repository.buscar_por_id(id_reserva)
+        if not reserva:
+            raise ValueError(f"Reserva #{id_reserva} não encontrada.")
+
+        if reserva.status != "Confirmada":
+            raise ValueError(
+                f"Não é possível fazer check-in: reserva está com status "
+                f"'{reserva.status}'. É necessário confirmar o pagamento antes."
+            )
+
+        vinculos_ativos = [
+            v for v in self.reserva_suite_repository.listar_por_reserva(id_reserva)
+            if v.data_saida is None
+        ]
+        if not vinculos_ativos:
+            raise ValueError(
+                "Não é possível fazer check-in: nenhuma suíte vinculada a esta reserva."
+            )
+
+        hoje = date.today()
+        aviso = None
+
+        if reserva.checkin_previsto and hoje < reserva.checkin_previsto:
+            raise ValueError(
+                f"Não é possível fazer check-in antes da data prevista "
+                f"({reserva.checkin_previsto.strftime('%d/%m/%Y')})."
+            )
+
+        if reserva.checkin_previsto and hoje > reserva.checkin_previsto:
+            dias_atraso = (hoje - reserva.checkin_previsto).days
+            aviso = (
+                f"Check-in realizado com {dias_atraso} dia(s) de atraso "
+                f"em relação à data prevista ({reserva.checkin_previsto.strftime('%d/%m/%Y')})."
+            )
+
+        reserva.status = "Hospedado"
+        reserva.checkin_realizado = hoje
+        reserva.checkin_por = usuario
+        reserva = self.repository.atualizar(reserva)
+
+        return reserva, aviso
+
+    def fazer_checkout(self, id_reserva: int, usuario: str) -> Reserva:
+        """
+        Regra do documento: check-out só pode ocorrer após a quitação da conta
+        e libera a(s) suíte(s) para a Governança (limpeza). Aqui já marcamos a
+        suíte como "Disponível" novamente e encerra os vínculos ativos
+        (data_saida) — diferente do botão "Desvincular" manual, que só encerra
+        um vínculo específico sem finalizar a reserva inteira.
+        """
+        reserva = self.repository.buscar_por_id(id_reserva)
+        if not reserva:
+            raise ValueError(f"Reserva #{id_reserva} não encontrada.")
+
+        if reserva.status != "Hospedado":
+            raise ValueError(
+                f"Não é possível fazer check-out: reserva está com status '{reserva.status}'."
+            )
+
+        vinculos_ativos = [
+            v for v in self.reserva_suite_repository.listar_por_reserva(id_reserva)
+            if v.data_saida is None
+        ]
+
+        hoje = date.today()
+        for vinculo in vinculos_ativos:
+            vinculo.data_saida = hoje
+            self.reserva_suite_repository.atualizar(vinculo)
+
+            suite = vinculo.suite or self.suite_repository.buscar_por_id(vinculo.id_suite)
+            suite.status = "Disponível"
+            self.suite_repository.atualizar(suite)
+
+        reserva.status = "Finalizada"
+        reserva.checkout_realizado = hoje
+        reserva.checkout_por = usuario
         return self.repository.atualizar(reserva)
