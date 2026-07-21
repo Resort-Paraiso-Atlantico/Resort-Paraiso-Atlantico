@@ -57,17 +57,23 @@ with tab_listar:
         if not suites:
             st.info("Nenhuma suíte encontrada.")
         else:
-            dados = [
-                {
-                    "ID": s.id_suite,
-                    "Número": s.numero,
-                    "Tipo": s.tipo,
-                    "Capacidade": s.capacidade,
-                    "Diária (R$)": s.valor_diaria,
-                    "Status": s.status,
-                }
-                for s in suites
-            ]
-            st.dataframe(dados, use_container_width=True)
+            for s in suites:
+                col1, col2, col3, col4, col5, col6 = st.columns([1, 2, 1, 2, 2, 2])
+                col1.write(f"**Nº {s.numero}**")
+                col2.write(f"{s.tipo} · {s.capacidade} pax")
+                col3.write(f"R$ {s.valor_diaria:,.2f}")
+                col4.write(s.status)
+
+                if s.status != "Disponível":
+                    if col5.button("Deixar disponível", key=f"btn_disponivel_{s.id_suite}"):
+                        try:
+                            with SessionLocal() as db:
+                                service = SuiteService(db)
+                                service.deixar_disponivel(s.id_suite)
+                            st.rerun()
+                        except ValueError as e:
+                            st.error(str(e))
+                        except Exception as e:
+                            st.error(f"Erro: {e}")
     except Exception as e:
         st.error(f"Erro ao buscar suítes: {e}")
