@@ -26,3 +26,14 @@ class SuiteService:
         
     def listar_suites(self):
         return self.repository.listar_todas()
+    
+    def deixar_disponivel(self, id_suite: int) -> Suite:
+        suite = self.repository.buscar_por_id(id_suite)
+        if suite is None:
+            raise ValueError("Suíte não encontrada")
+
+        if suite.status == "Disponível":
+            raise ValueError("Suíte já está disponível")
+
+        suite.status = "Disponível"
+        return self.repository.atualizar(suite)
