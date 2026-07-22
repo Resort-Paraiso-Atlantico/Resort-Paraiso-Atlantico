@@ -12,4 +12,4 @@ class Produto(Base):
     estoque_minimo: Mapped[int] = mapped_column(Integer, nullable = False)
     valor_unitario: Mapped[float] = mapped_column(Float, nullable = False)
 
-    produto = relationship("Produto", back_populates = "pedido_Item")
+    pedidoItem = relationship("PedidoItem", back_populates = "produto")

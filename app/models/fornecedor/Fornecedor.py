@@ -11,4 +11,4 @@ class Fornecedor(Base):
     email: Mapped[str] = mapped_column(String(100), unique = True, nullable = False)
     endereco: Mapped[str] = mapped_column(String(200))
 
-    fornecedor = relationship("Fornecedor", uselist = False, back_populates = "pedidoCompra")
+    pedidoCompra = relationship("PedidoCompra", uselist = False, back_populates = "fornecedor")

@@ -14,5 +14,5 @@ class PedidoCompra(Base):
     valor_total: Mapped[float] = mapped_column(Float, nullable = False)
     status: Mapped[str] = mapped_column(String(20), nullable = False)
 
-    pedidoCompra = relationship("PedidoCompra", back_populates = "fornecedor")
-    pedido_Compra = relationship("PedidoCompra", setlist = False, back_populates = "pedidoItem")
+    fornecedor = relationship("Fornecedor", back_populates = "pedidoCompra")
+    pedidoItem = relationship("PedidoItem", uselist = False, back_populates = "pedidoCompra")

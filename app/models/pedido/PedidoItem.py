@@ -5,6 +5,7 @@ from app.models.Base import Base
 
 
 class PedidoItem(Base):
+    __tablename__ = "pedido_item"
     id_pedido_item: Mapped[int] = mapped_column(Integer, primary_key = True, autoincrement = True)
     id_pedido: Mapped[int] = mapped_column(ForeignKey("pedido_compra.id_pedido"))
     id_produto: Mapped[int] = mapped_column(ForeignKey("produto.id_produto"))
@@ -12,5 +13,5 @@ class PedidoItem(Base):
     valor_unitario: Mapped[float] = mapped_column(Float, nullable = False)
     valor_total: Mapped[float] = mapped_column(Float, nullable = False)
 
-    pedidoItem = relationship("PedidoItem", back_populates = "pedido_Compra")
-    pedido_Item = relationship("PedidoItem", back_populates = "produto")
+    pedidoCompra = relationship("PedidoCompra", back_populates = "pedidoItem")
+    produto = relationship("Produto", back_populates = "pedidoItem")
