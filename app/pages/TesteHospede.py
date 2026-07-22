@@ -1,8 +1,14 @@
 import streamlit as st
 from app.services.HospedeService import HospedeService
 from app.database import SessionLocal  # ajuste esse import conforme o nome real da sua factory de Session
+from app.theme import aplicar_tema, cabecalho
 
-st.title("Hóspedes")
+if not st.user.is_logged_in:
+    st.error("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
+aplicar_tema()
+cabecalho("Hóspedes", "Cadastre e gerencie os dados dos hóspedes", "👤")
 
 db = SessionLocal()
 service = HospedeService(db)
@@ -32,18 +38,22 @@ with aba_listar:
     st.subheader("Todos os hóspedes")
     hospedes = service.listar_hospedes()
     if hospedes:
-        st.dataframe(
-            [
-                {
-                    "CPF": h.cpf,
-                    "Nome": h.nome,
-                    "Telefone": h.telefone,
-                    "Email": h.email,
-                    "Endereço": h.endereco,
-                }
-                for h in hospedes
-            ]
-        )
+        cols = st.columns(2)
+        for i, h in enumerate(hospedes):
+            with cols[i % 2]:
+                st.markdown(
+                    f"""
+                    <div class="resort-suite-card">
+                        <span class="resort-suite-number">{h.nome}</span>
+                        <div class="resort-suite-meta">
+                            CPF: {h.cpf}<br>
+                            📞 {h.telefone or '—'} · ✉️ {h.email or '—'}<br>
+                            📍 {h.endereco or '—'}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
     else:
         st.info("Nenhum hóspede cadastrado.")
 
