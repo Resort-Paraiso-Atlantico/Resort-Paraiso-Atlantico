@@ -23,5 +23,6 @@ pg = st.navigation([
     st.Page("app/pages/TesteHospede.py", title="Hóspedes", icon= "👤"),
     st.Page("app/pages/TesteReservaSuite.py", title="Reserva ↔ Suíte", icon="🔗"),
     st.Page("app/pages/CheckIn.py", title="Check-in / Check-out", icon="🔑"),
+    st.Page("app/pages/fornecedor_page/FornecedorPage.py", title = "Fornecedores", icon = "🚚")
 ])
 pg.run()
