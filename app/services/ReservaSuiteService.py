@@ -4,16 +4,25 @@ from datetime import date
 from sqlalchemy.orm import Session
 from app.repositories.SuiteRepository import SuiteRepository
 from app.repositories.ReservaSuiteRepository import ReservaSuiteRepository
+from app.repositories.ReservaRepository import ReservaRepository
 
 class ReservaSuiteService:
 
     def __init__(self, db: Session):
         self.repository = ReservaSuiteRepository(db)
         self.suite_repository = SuiteRepository(db)
+        self.reserva_repository = ReservaRepository(db)
 
-    def vincular_reserva_suite(self,id_reserva:int,id_suite:int,data_entrada:date):
+    def vincular_reserva_suite(self,id_reserva:int,id_suite:int,data_entrada:date,data_saida:date):
         if id_reserva is None:
             raise ValueError("Deve ter id da reserva.")
+
+        reserva = self.reserva_repository.buscar_por_id(id_reserva)
+        if reserva.status == "Finalizada":
+            raise ValueError("Reserva não pode estar finalizada.")
+
+        if data_entrada > data_saida:
+                    raise ValueError("A data de entrada não pode ser depois da data de saida.")
         
         if id_suite is None:
             raise ValueError("Deve ter id da suite.")
@@ -32,7 +41,8 @@ class ReservaSuiteService:
             id_reserva = id_reserva,
             id_suite = id_suite,
             data_entrada = data_entrada,
-            valor_diaria=suite.valor_diaria
+            valor_diaria=suite.valor_diaria,
+            data_saida= data_saida
 
         )
 

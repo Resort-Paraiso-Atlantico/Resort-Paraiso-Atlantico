@@ -2,8 +2,8 @@ import streamlit as st
 from datetime import date
 from app.database import SessionLocal
 from app.services.ReservaSuiteService import ReservaSuiteService
+from app.services.ReservaService import ReservaService
 from app.services.SuiteService import SuiteService
-from app.models.Reserva import Reserva
 from app.theme import aplicar_tema, cabecalho
 
 if not st.user.is_logged_in:
@@ -78,13 +78,14 @@ with tab_valor_total:
     st.subheader("Somar o valor de todas as suítes de uma reserva")
 
     with SessionLocal() as db:
-        reservas = db.query(Reserva).all()
+        reservas = ReservaService(db).listar_reservas()
+        nomes = {r.id_reserva: (r.hospede.nome if r.hospede else r.cpf_hospede) for r in reservas}
 
     if not reservas:
         st.info("Nenhuma reserva cadastrada.")
     else:
         opcoes_reserva = {
-            f"#{r.id_reserva} — {r.cpf_hospede} ({r.status})": r.id_reserva
+            f"#{r.id_reserva} — {nomes[r.id_reserva]} ({r.status})": r.id_reserva
             for r in reservas
         }
         reserva_selecionada = st.selectbox("Selecione a reserva", list(opcoes_reserva.keys()), key="select_valor_total")
