@@ -11,8 +11,6 @@ if not st.user.is_logged_in:
 aplicar_tema()
 cabecalho("Check-in / Check-out", "Dê entrada ou saída dos hóspedes", "🔑")
 
-tab_checkin, tab_checkout, tab_consulta = st.tabs(["Fazer Check-in", "Fazer Check-out", "Consultar por CPF"])
-
 
 def _suites_vinculadas_texto(db, id_reserva: int) -> str:
     vinculo_service = ReservaSuiteService(db)
@@ -22,6 +20,18 @@ def _suites_vinculadas_texto(db, id_reserva: int) -> str:
     numeros = ", ".join(f"nº {v.suite.numero}" for v in vinculos)
     return f"{len(vinculos)} suíte(s) vinculada(s) ({numeros})"
 
+
+with SessionLocal() as db:
+    todas_reservas = ReservaService(db).listar_reservas()
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Aguardando check-in", sum(1 for r in todas_reservas if r.status == "Confirmada"))
+c2.metric("Hospedados agora", sum(1 for r in todas_reservas if r.status == "Hospedado"))
+c3.metric("Finalizadas", sum(1 for r in todas_reservas if r.status == "Finalizada"))
+
+st.divider()
+
+tab_checkin, tab_checkout, tab_consulta = st.tabs(["Fazer Check-in", "Fazer Check-out", "Consultar por CPF"])
 
 # ── Fazer Check-in ──────────────────────────────────────────────────────────
 with tab_checkin:

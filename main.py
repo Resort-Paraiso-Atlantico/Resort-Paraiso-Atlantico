@@ -18,11 +18,12 @@ with col3:
     st.button("Sair", on_click=st.logout)
 
 pg = st.navigation([
-    st.Page("app/pages/TesteSuite.py", title="Suítes", icon="🛏️"),
-    st.Page("app/pages/TesteReserva.py", title="Reservas", icon="📋"),
-    st.Page("app/pages/TesteHospede.py", title="Hóspedes", icon= "👤"),
-    st.Page("app/pages/TesteReservaSuite.py", title="Reserva ↔ Suíte", icon="🔗"),
-    st.Page("app/pages/CheckIn.py", title="Check-in / Check-out", icon="🔑"),
+
+    st.Page("app/pages/Painel.py", title="Painel", icon="🏠"),
+    st.Page("app/pages/Reservas.py", title="Reservas", icon="📋"),
+    st.Page("app/pages/Recepcao.py", title="Recepção", icon="🔑"),
+    st.Page("app/pages/Suites.py", title="Suítes", icon="🛏️"),
+    st.Page("app/pages/Eventos.py", title="Eventos", icon="🎉"),
     st.Page("app/pages/fornecedor_page/FornecedorPage.py", title = "Fornecedores", icon = "🚚")
 ])
 pg.run()

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.models import Suite
 
 from sqlalchemy.orm import Session
@@ -20,6 +22,7 @@ class SuiteService:
         capacidade=capacidade,
         valor_diaria=valor_diaria,
         status=status,
+        ultima_limpeza=datetime.now(),
         )
         
         return self.repository.criar(suite)
@@ -36,4 +39,11 @@ class SuiteService:
             raise ValueError("Suíte já está disponível")
 
         suite.status = "Disponível"
+        return self.repository.atualizar(suite)
+
+    def registrar_limpeza(self, id_suite: int) -> Suite:
+        suite = self.repository.buscar_por_id(id_suite)
+        if suite is None:
+            raise ValueError("Suíte não encontrada")
+        suite.ultima_limpeza = datetime.now()
         return self.repository.atualizar(suite)
