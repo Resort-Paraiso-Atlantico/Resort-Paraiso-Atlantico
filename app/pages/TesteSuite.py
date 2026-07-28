@@ -48,16 +48,37 @@ with tab_criar:
 with tab_listar:
     st.subheader("Suítes cadastradas")
 
-    if st.button("Atualizar", use_container_width=True):
-        st.rerun()
-
     try:
         with SessionLocal() as db:
             service = SuiteService(db)
-            suites = service.listar_suites()
+            todas_suites = service.listar_suites()
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total", len(todas_suites))
+        c2.metric("Disponíveis", sum(1 for s in todas_suites if s.status == "Disponível"))
+        c3.metric("Ocupadas", sum(1 for s in todas_suites if s.status == "Ocupada"))
+        c4.metric("Manutenção", sum(1 for s in todas_suites if s.status == "Manutenção"))
+
+        st.divider()
+
+        col_tipo, col_status, col_atualizar = st.columns([2, 2, 1])
+        tipos = sorted({s.tipo for s in todas_suites})
+        filtro_tipo = col_tipo.multiselect("Filtrar por tipo", tipos, default=tipos)
+        filtro_status = col_status.selectbox(
+            "Filtrar por status", ["Todos", "Disponível", "Ocupada", "Manutenção"]
+        )
+        with col_atualizar:
+            st.write("")
+            if st.button("🔄 Atualizar", use_container_width=True):
+                st.rerun()
+
+        suites = [s for s in todas_suites if s.tipo in filtro_tipo]
+        if filtro_status != "Todos":
+            suites = [s for s in suites if s.status == filtro_status]
+        suites = sorted(suites, key=lambda s: s.numero)
 
         if not suites:
-            st.info("Nenhuma suíte encontrada.")
+            st.info("Nenhuma suíte encontrada com esse filtro.")
         else:
             cols = st.columns(2)
             for i, s in enumerate(suites):
