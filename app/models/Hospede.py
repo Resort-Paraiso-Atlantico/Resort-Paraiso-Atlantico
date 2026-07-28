@@ -3,8 +3,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 from app.models import Base
 
-#Acharia bom fazer alguma validação em email, telefone e talvez cpf. Mas o chat indica para fazer isso em outra "camada".
-
 class Hospede(Base):
     __tablename__ = "hospedes"
     cpf: Mapped[str] = mapped_column(String(11),primary_key=True)
@@ -15,3 +13,5 @@ class Hospede(Base):
     data_cadastro: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     reservas = relationship("Reserva", back_populates="hospede")
+
+    hospede_evento: Mapped[list["HospedeEvento"]] = relationship(back_populates="hospede")
