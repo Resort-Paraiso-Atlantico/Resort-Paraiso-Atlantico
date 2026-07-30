@@ -70,6 +70,6 @@ class FornecedorService:
     
         removido = self.repository.remover(cnpj)
         if not removido:
-            raise ValueError("Hóspode não encontrado.")
+            raise ValueError("Fornecedor não encontrado.")
         return removido
     

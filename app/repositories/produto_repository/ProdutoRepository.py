@@ -29,8 +29,8 @@ class ProdutoRepository:
         stmt = select(Produto)
         return list(self.session.execute(stmt).scalars().all())
     
-    def atualizar(self, fornecedor: Produto) -> Produto:
-        produto_gerenciado = self.session.merge(fornecedor)
+    def atualizar(self, produto: Produto) -> Produto:
+        produto_gerenciado = self.session.merge(produto)
         self.session.commit()
         return produto_gerenciado
     
