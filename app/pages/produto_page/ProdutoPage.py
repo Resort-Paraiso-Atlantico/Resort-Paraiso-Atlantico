@@ -77,14 +77,13 @@ with aba_atualizar:
             nome = st.text_input("Nome", value = p.nome)
             categorias = ["Cat1", "Cat2", "Cat3"]
             categoria = st.selectbox("Categoria", categorias, index = categorias.index(p.categoria))
-            quantidade = st.number_input("Quantidade", value = p.quantidade)
             estoque_minimo = st.number_input("Estoque Mínimo", min_value = 1, value = p.estoque_minimo)
             valor_unitario = st.number_input("Valor Unitário", min_value = 0.1, format = "%.2f", value = p.valor_unitario)
             submitted = st.form_submit_button("Salvar alterações.")
 
             if submitted:
                 try:
-                    service.atualizar_produto(p.id_produto, nome, categoria, quantidade, estoque_minimo, valor_unitario)
+                    service.atualizar_produto(p.id_produto, nome, categoria, estoque_minimo, valor_unitario)
                     st.success("Produto atualizado com sucesso.")
                     del st.session_state["produto_editando"]
                 except ValueError as e:

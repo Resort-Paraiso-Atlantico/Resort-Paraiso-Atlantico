@@ -19,11 +19,11 @@ class ProdutoRepository:
     
     def buscar_por_nome(self, nome: str) -> Produto | None:
         stmt = select(Produto).where(Produto.nome == nome)
-        return self.session.execute(stmt).scalar_one_or_none
+        return self.session.execute(stmt).scalar_one_or_none()
     
-    def buscar_por_categoria(self, categoria: str) -> Produto | None:
+    def buscar_por_categoria(self, categoria: str) -> list[Produto]:
         stmt = select(Produto).where(Produto.categoria == categoria)
-        return self.session.execute(stmt).scalar_one_or_none
+        return self.session.execute(stmt).scalars().all()
     
     def listar_todos(self) -> list[Produto]:
         stmt = select(Produto)
@@ -34,7 +34,7 @@ class ProdutoRepository:
         self.session.commit()
         return produto_gerenciado
     
-    def remover(self, id_produto: str) -> bool:
+    def remover(self, id_produto: int) -> bool:
         produto = self.buscar_por_id_produto(id_produto)
         if produto is None:
             return False

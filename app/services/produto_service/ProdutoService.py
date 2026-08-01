@@ -48,7 +48,6 @@ class ProdutoService:
         self,
         id_produto: int,
         nome: str,
-        categoria: str,
         quantidade: int,
         estoque_minimo: int,
         valor_unitario: int
@@ -65,7 +64,6 @@ class ProdutoService:
             raise ValueError("O preço unitário do produto deve ser superior a 0.")
         
         produto.nome = nome
-        produto.categoria = categoria
         produto.quantidade = quantidade
         produto.estoque_minimo = estoque_minimo
         produto.valor_unitario = valor_unitario
