@@ -21,6 +21,8 @@ class HospedeService:
         ):
         if self.buscar_por_cpf(cpf):
             raise ValueError("Cpf ja está cadastrado")
+        if self.buscar_por_email(email):
+                    raise ValueError("Email ja está sendo usado")
 
         hospede = Hospede(cpf=cpf,nome=nome,telefone=telefone,email=email,endereco=endereco)
         return self.repository.criar(hospede)

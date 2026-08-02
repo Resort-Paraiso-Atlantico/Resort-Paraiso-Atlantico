@@ -4,6 +4,7 @@ from app.database import SessionLocal
 from app.services.ReservaService import ReservaService
 from app.services.SuiteService import SuiteService
 from app.services.EventoService import EventoService
+from app.repositories.ReservaSuiteRepository import ReservaSuiteRepository
 from app.theme import aplicar_tema, cabecalho
 
 if not st.user.is_logged_in:
@@ -15,12 +16,17 @@ cabecalho("Painel", "Visão geral do resort agora", "🏠")
 
 DIAS_LIMPEZA_ALERTA = 3  # suítes disponíveis sem limpeza há mais de N dias entram no alerta
 
+hoje = date.today()
+
 with SessionLocal() as db:
     reservas = ReservaService(db).listar_reservas()
     suites = SuiteService(db).listar_suites()
     eventos = EventoService(db).listar_eventos_nao_encerrados()
-
-hoje = date.today()
+    reserva_suite_repo = ReservaSuiteRepository(db)
+    ocupadas_agora = {
+        s.id_suite for s in suites
+        if s.status != "Manutenção" and reserva_suite_repo.existe_conflito(s.id_suite, hoje, hoje + timedelta(days=1))
+    }
 
 # ── KPIs principais ───────────────────────────────────────────────────────────
 c1, c2, c3, c4 = st.columns(4)
@@ -37,9 +43,9 @@ col_esq, col_dir = st.columns(2)
 with col_esq:
     st.subheader("🛏️ Ocupação das suítes")
     total = len(suites) or 1
-    disponiveis = sum(1 for s in suites if s.status == "Disponível")
-    ocupadas = sum(1 for s in suites if s.status == "Ocupada")
+    ocupadas = len(ocupadas_agora)
     manutencao = sum(1 for s in suites if s.status == "Manutenção")
+    disponiveis = len(suites) - ocupadas - manutencao
 
     st.progress(ocupadas / total)
     st.caption(f"{ocupadas} de {len(suites)} suítes ocupadas")
@@ -55,7 +61,9 @@ with col_dir:
     limite = datetime.now() - timedelta(days=DIAS_LIMPEZA_ALERTA)
     pendentes = [
         s for s in suites
-        if s.status == "Disponível" and (s.ultima_limpeza is None or s.ultima_limpeza < limite)
+        if s.id_suite not in ocupadas_agora
+        and s.status != "Manutenção"
+        and (s.ultima_limpeza is None or s.ultima_limpeza < limite)
     ]
     if not pendentes:
         st.success("Nenhuma suíte disponível precisa de limpeza no momento.")

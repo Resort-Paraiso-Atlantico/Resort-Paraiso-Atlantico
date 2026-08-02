@@ -18,11 +18,14 @@ class ReservaSuiteService:
             raise ValueError("Deve ter id da reserva.")
 
         reserva = self.reserva_repository.buscar_por_id(id_reserva)
+        if  reserva == None:
+            raise ValueError("Reserva não Encontrada.")
         if reserva.status == "Finalizada":
             raise ValueError("Reserva não pode estar finalizada.")
-
-        if data_entrada > data_saida:
-                    raise ValueError("A data de entrada não pode ser depois da data de saida.")
+        
+        if data_saida is not None:
+            if data_entrada > data_saida:
+                raise ValueError("A data de entrada não pode ser depois da data de saida.")
         
         if id_suite is None:
             raise ValueError("Deve ter id da suite.")
@@ -30,12 +33,12 @@ class ReservaSuiteService:
         suite = self.suite_repository.buscar_por_id(id_suite)
         if not suite:
             raise ValueError(f"Suíte #{id_suite} não encontrada.")
-        
-        if suite.status != "Disponível":
-            raise ValueError("Suite não está disponivel.")
-        
-        suite.status = "Ocupada"
-        self.suite_repository.atualizar(suite)
+
+        if suite.status == "Manutenção":
+            raise ValueError("Suíte está em manutenção.")
+
+        if self.repository.existe_conflito(id_suite, data_entrada, data_saida):
+            raise ValueError("Suíte já está ocupada nesse período.")
 
         reserva_suite = ReservaSuite(
             id_reserva = id_reserva,
@@ -77,12 +80,6 @@ class ReservaSuiteService:
         reserva_suite.data_saida = data_saida
         reserva_suite = self.repository.atualizar(reserva_suite)
 
-        # Libera a suíte de volta para uso em outras reservas
-        suite = self.suite_repository.buscar_por_id(reserva_suite.id_suite)
-        if suite:
-            suite.status = "Disponível"
-            self.suite_repository.atualizar(suite)
-
         return reserva_suite
     
     def calcular_valor_estadia(self, id: int) -> float:
@@ -121,5 +118,16 @@ class ReservaSuiteService:
         if reserva_suite.data_saida is not None and nova_data_entrada > reserva_suite.data_saida:
             raise ValueError("Data de entrada não pode ser posterior à data de saída já registrada.")
 
+        if self.repository.existe_conflito(
+            reserva_suite.id_suite, nova_data_entrada, reserva_suite.data_saida, excluir_id=id
+        ):
+            raise ValueError("Suíte já está ocupada nesse período.")
+
         reserva_suite.data_entrada = nova_data_entrada
         return self.repository.atualizar(reserva_suite)
+
+    def listar_por_suite(self, id_suite: int):
+        if id_suite is None:
+            raise ValueError("Deve ter id da suite.")
+
+        return self.repository.listar_por_suite(id_suite)
