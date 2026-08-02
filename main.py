@@ -25,6 +25,7 @@ pg = st.navigation([
     st.Page("app/pages/Eventos.py", title="Eventos", icon="🎉"),
     st.Page("app/pages/fornecedor_page/FornecedorPage.py", title = "Fornecedores", icon = "🚚"),
     st.Page("app/pages/produto_page/ProdutoPage.py", title = "Produtos", icon = "📦"),
-    st.Page("app/pages/pedido_page/PedidoCompraPage.py", title = "Pedidos de Compra", icon = "🛒")
+    st.Page("app/pages/pedido_page/PedidoCompraPage.py", title = "Pedidos de Compra", icon = "🛒"),
+    st.Page("app/pages/estoque_page/EstoquePage.py", title = "Estoque", icon = "🏭")
 ])
 pg.run()
