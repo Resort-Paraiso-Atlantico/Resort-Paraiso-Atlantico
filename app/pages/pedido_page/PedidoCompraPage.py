@@ -27,6 +27,9 @@ pedido_service = PedidoCompraService(db)
 fornecedor_service = FornecedorService(db)
 produto_service = ProdutoService(db)
 
+if "itens_pedido" not in st.session_state:
+    st.session_state.itens_pedido = []
+
 aba_cadastrar, aba_listar, aba_consultar, aba_cancelar = st.tabs(
     [
         "Cadastrar",
@@ -37,6 +40,7 @@ aba_cadastrar, aba_listar, aba_consultar, aba_cancelar = st.tabs(
 )
 
 with aba_cadastrar:
+
     st.subheader("Novo Pedido")
 
     fornecedores = fornecedor_service.listar_fornecedores()
@@ -51,94 +55,133 @@ with aba_cadastrar:
         st.warning("Cadastre um produto primeiro.")
         st.stop()
 
-    with st.form("novo_pedido"):
+    fornecedor = st.selectbox(
+        "Fornecedor",
+        fornecedores,
+        format_func=lambda f: f.nome
+    )
 
-        fornecedor = st.selectbox(
-            "Fornecedor",
-            fornecedores,
-            format_func = lambda f:f.nome
+    st.divider()
+
+    st.subheader("Adicionar Item")
+
+    produto = st.selectbox(
+        "Produto",
+        produtos,
+        format_func=lambda p: p.nome
+    )
+
+    quantidade = st.number_input(
+        "Quantidade",
+        min_value=1,
+        value=1,
+        step=1
+    )
+
+    if st.button("Adicionar Item"):
+
+        encontrado = False
+
+        for item in st.session_state.itens_pedido:
+
+            if item["id_produto"] == produto.id_produto:
+                item["quantidade"] += quantidade
+                encontrado = True
+                break
+
+        if not encontrado:
+
+            st.session_state.itens_pedido.append(
+                {
+                    "id_produto": produto.id_produto,
+                    "nome": produto.nome,
+                    "quantidade": quantidade,
+                    "valor_unitario": produto.valor_unitario
+                }
+            )
+
+        st.rerun()
+
+    st.divider()
+
+    st.subheader("Itens do Pedido")
+
+    if not st.session_state.itens_pedido:
+
+        st.info("Nenhum item adicionado.")
+
+    else:
+
+        valor_total = 0
+
+        for indice, item in enumerate(st.session_state.itens_pedido):
+
+            total_item = (
+                item["quantidade"] *
+                item["valor_unitario"]
+            )
+
+            valor_total += total_item
+
+            col1, col2, col3, col4, col5 = st.columns(
+                [4, 2, 2, 2, 1]
+            )
+
+            col1.write(item["nome"])
+            col2.write(item["quantidade"])
+            col3.write(f"R$ {item['valor_unitario']:.2f}")
+            col4.write(f"R$ {total_item:.2f}")
+
+            if col5.button(
+                "🗑",
+                key=f"remover_{indice}"
+            ):
+
+                st.session_state.itens_pedido.pop(indice)
+
+                st.rerun()
+
+        st.markdown(
+            f"### Valor Total: R$ {valor_total:.2f}"
         )
 
-        st.markdown("### Item 1")
-        produto1 = st.selectbox(
-            "Produto",
-            produtos,
-            key="produto1",
-            format_func = lambda p:p.nome
-        )
-        quantidade1 = st.number_input(
-            "Quantidade",
-            min_value = 0,
-            key = "qtd1"
-        )
+        if st.button("Cadastrar Pedido"):
 
-        st.markdown("### Item 2")
-        produto2 = st.selectbox(
-            "Produto",
-            produtos,
-            key="produto2",
-            format_func = lambda p:p.nome
-        )
-        quantidade2 = st.number_input(
-            "Quantidade",
-            min_value = 0,
-            key = "qtd2"
-        )
-
-        st.markdown("### Item 3")
-        produto3 = st.selectbox(
-            "Produto",
-            produtos,
-            key="produto3",
-            format_func = lambda p:p.nome
-        )
-        quantidade3 = st.number_input(
-            "Quantidade",
-            min_value = 0,
-            key = "qtd3"
-        )
-
-        submitted = st.form_submit_button("Cadastrar Pedido")
-
-        if submitted:
-            itens = []
-
-            if quantidade1 > 0:
-                itens.append(
-                    PedidoItem(
-                        id_produto = produto1.id_produto,
-                        quantidade = quantidade1,
-                        valor_unitario = produto1.valor_unitario,
-                        valor_total = produto1.valor_unitario * quantidade1
-                    )
-                )
-            if quantidade2 > 0:
-                itens.append(
-                    PedidoItem(
-                        id_produto = produto2.id_produto,
-                        quantidade = quantidade2,
-                        valor_unitario = produto2.valor_unitario,
-                        valor_total = produto2.valor_unitario * quantidade2
-                    )
-                )
-            if quantidade3 > 0:
-                itens.append(
-                    PedidoItem(
-                        id_produto = produto3.id_produto,
-                        quantidade = quantidade3,
-                        valor_unitario = produto3.valor_unitario,
-                        valor_total = produto3.valor_unitario * quantidade1
-                    )
-                )
             try:
+
+                itens = []
+
+                for item in st.session_state.itens_pedido:
+
+                    itens.append(
+
+                        PedidoItem(
+                            id_produto=item["id_produto"],
+                            quantidade=item["quantidade"],
+                            valor_unitario=item["valor_unitario"],
+                            valor_total=(
+                                item["quantidade"] *
+                                item["valor_unitario"]
+                            )
+                        )
+
+                    )
+
                 pedido = PedidoCompra(
-                    cnpj_fornecedor = fornecedor.cnpj,
-                    pedidoItem = itens
+                    cnpj_fornecedor=fornecedor.cnpj,
+                    pedidoItem=itens
                 )
 
                 pedido_service.criar_pedido(pedido)
-                st.success("Pedido criado.")
+
+                st.success("Pedido cadastrado com sucesso.")
+
+                st.session_state.itens_pedido.clear()
+
+                st.rerun()
+
             except ValueError as e:
+
                 st.error(str(e))
 
 with aba_listar:
