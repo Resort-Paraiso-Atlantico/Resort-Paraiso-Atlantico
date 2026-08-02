@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 from datetime import date, datetime, time
 from app.database import SessionLocal
 from app.services.EventoService import EventoService
@@ -8,6 +9,10 @@ from app.theme import aplicar_tema, cabecalho
 if not st.user.is_logged_in:
     st.error("Você precisa estar logado para acessar esta página.")
     st.stop()
+
+def _somente_digitos(texto: str) -> str:
+    return re.sub(r"\D", "", texto or "")
+
 
 aplicar_tema()
 cabecalho("Eventos", "Crie eventos e gerencie inscrições dos hóspedes", "🎉")
@@ -180,7 +185,7 @@ with tab_inscrever:
             try:
                 with SessionLocal() as db:
                     HospedeEventoService(db).inscrever_hospede(
-                        cpf_hospede=cpf_hospede_insc.strip(),
+                        cpf_hospede=_somente_digitos(cpf_hospede_insc),
                         id_evento=id_evento_insc,
                     )
                 st.success("Hóspede inscrito com sucesso!")
@@ -244,11 +249,25 @@ with tab_por_hospede:
                 st.info("Esse hóspede não está inscrito em nenhum evento.")
             else:
                 for i in inscricoes:
-                    with st.expander(f"{i.evento.nome_evento} — inscrito em {i.data_inscricao}"):
-                        st.write(i.evento.descricao)
+                    evento = i.evento
+
+                    with st.container(border=True):
+
+                        st.subheader(f"🎉 {evento.nome_evento}")
+
+                        st.write(evento.descricao)
+
                         col1, col2 = st.columns(2)
-                        col1.metric("Início", str(i.evento.inicio_evento))
-                        col2.metric("Término", str(i.evento.fim_evento))
+
+                        with col1:
+                            st.write("🟢 Início")
+                            st.write(evento.inicio_evento)
+
+                        with col2:
+                            st.write("🔴 Término")
+                            st.write(evento.fim_evento)
+
+                        st.write(f"📌 Inscrição: {i.data_inscricao}")
         except ValueError as e:
             st.error(str(e))
         except Exception as e:
