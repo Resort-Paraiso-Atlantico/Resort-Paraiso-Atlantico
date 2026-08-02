@@ -15,4 +15,4 @@ class PedidoCompra(Base):
     status: Mapped[str] = mapped_column(String(20), nullable = False)
 
     fornecedor = relationship("Fornecedor", back_populates = "pedidoCompra")
-    pedidoItem = relationship("PedidoItem", uselist = False, back_populates = "pedidoCompra")
+    pedidoItem = relationship("PedidoItem", back_populates = "pedidoCompra")
