@@ -1,6 +1,8 @@
 import streamlit as st
 
 from app.database import SessionLocal
+from app.models.pedido.PedidoCompra import PedidoCompra
+from app.models.pedido.PedidoItem import PedidoItem
 from app.repositories.pedido_compra_repository.PedidoCompraRepository import PedidoCompraRepository
 from app.services.pedido_service.PedidoCompraService import PedidoCompraService
 from app.services.fornecedor_service.FornecedorService import FornecedorService
@@ -49,13 +51,13 @@ with aba_cadastrar:
         st.warning("Cadastre um produto primeiro.")
         st.stop()
 
-        with st.form("novo_pedido"):
+    with st.form("novo_pedido"):
 
-            fornecedor = st.selectbox(
-                "Fornecedor",
-                fornecedores,
-                format_func = lambda f:f.nome
-            )
+        fornecedor = st.selectbox(
+            "Fornecedor",
+            fornecedores,
+            format_func = lambda f:f.nome
+        )
 
         st.markdown("### Item 1")
         produto1 = st.selectbox(
@@ -66,7 +68,7 @@ with aba_cadastrar:
         )
         quantidade1 = st.number_input(
             "Quantidade",
-            min_value = 1,
+            min_value = 0,
             key = "qtd1"
         )
 
@@ -79,7 +81,7 @@ with aba_cadastrar:
         )
         quantidade2 = st.number_input(
             "Quantidade",
-            min_value = 1,
+            min_value = 0,
             key = "qtd2"
         )
 
@@ -92,7 +94,7 @@ with aba_cadastrar:
         )
         quantidade3 = st.number_input(
             "Quantidade",
-            min_value = 1,
+            min_value = 0,
             key = "qtd3"
         )
 
@@ -103,31 +105,39 @@ with aba_cadastrar:
 
             if quantidade1 > 0:
                 itens.append(
-                    (
-                        produto1.id_produto,
-                        quantidade1
+                    PedidoItem(
+                        id_produto = produto1.id_produto,
+                        quantidade = quantidade1,
+                        valor_unitario = produto1.valor_unitario,
+                        valor_total = produto1.valor_unitario * quantidade1
                     )
                 )
             if quantidade2 > 0:
                 itens.append(
-                    (
-                        produto2.id_produto,
-                        quantidade2
+                    PedidoItem(
+                        id_produto = produto2.id_produto,
+                        quantidade = quantidade2,
+                        valor_unitario = produto2.valor_unitario,
+                        valor_total = produto2.valor_unitario * quantidade2
                     )
                 )
             if quantidade3 > 0:
                 itens.append(
-                    (
-                        produto3.id_produto,
-                        quantidade3
+                    PedidoItem(
+                        id_produto = produto3.id_produto,
+                        quantidade = quantidade3,
+                        valor_unitario = produto3.valor_unitario,
+                        valor_total = produto3.valor_unitario * quantidade1
                     )
                 )
             try:
-                pedido_service.criar_pedido(
-                    fornecedor.cnpj,
-                    itens
+                pedido = PedidoCompra(
+                    cnpj_fornecedor = fornecedor.cnpj,
+                    pedidoItem = itens
                 )
-                st.succes("Pedido criado.")
+
+                pedido_service.criar_pedido(pedido)
+                st.success("Pedido criado.")
             except ValueError as e:
                 st.error(str(e))
 
@@ -195,6 +205,26 @@ with aba_consultar:
                     f" - {item.quantidade}"
                 )
 
+with aba_cancelar:
+
+    id_cancelar = st.text_input(
+        "Pedido",
+        key="pedido_cancelar"
+    )
+
+    if st.button("Cancelar Pedido"):
+
+        try:
+
+            pedido_service.cancelar_pedido(
+                id_cancelar
+            )
+
+            st.success("Pedido cancelado.")
+
+        except ValueError as e:
+
+            st.error(str(e))
    
 
 

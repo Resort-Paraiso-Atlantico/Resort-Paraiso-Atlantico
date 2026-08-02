@@ -5,17 +5,13 @@ from app.repositories.produto_repository.ProdutoRepository import ProdutoReposit
 
 class EstoqueService:
 
-    def __init__(
-            self,
-            produto_repository: ProdutoRepository,
-            pedido_repository: PedidoCompraRepository
-    ):
-        self.produto_repository = produto_repository
-        self.pedido_repository = pedido_repository
+    def __init__(self, db):
+        self.produto_repository = ProdutoRepository(db)
+        self.pedido_repository = PedidoCompraRepository(db)
 
 
     def consultar_produto(self, id_produto: int):
-        return self.produto_repository.buscar_por_id(id_produto)
+        return self.produto_repository.buscar_por_id_produto(id_produto)
 
     def listar_produtos(self):
         return self.produto_repository.listar_todos()
@@ -33,7 +29,7 @@ class EstoqueService:
         if quantidade <= 0:
             raise ValueError("Quantidade inválida.")
 
-        produto = self.produto_repository.buscar_por_id(id_produto)
+        produto = self.produto_repository.buscar_por_id_produto(id_produto)
 
         if produto is None:
             raise ValueError("Produto não encontrado.")
@@ -46,7 +42,7 @@ class EstoqueService:
         if quantidade <= 0:
             raise ValueError("Quantidade inválida.")
 
-        produto = self.produto_repository.buscar_por_id(id_produto)
+        produto = self.produto_repository.buscar_por_id_produto(id_produto)
 
         if produto is None:
             raise ValueError("Produto não encontrado.")
@@ -56,7 +52,7 @@ class EstoqueService:
 
         produto.quantidade -= quantidade
 
-        return self.produto_repository.atualizar(id_produto)
+        return self.produto_repository.atualizar(produto)
 
     def receber_pedido(self, id_pedido: int):
         pedido = self.pedido_repository.buscar_por_id(id_pedido)
@@ -71,7 +67,7 @@ class EstoqueService:
             raise ValueError("Pedido cancelado.")
 
         for item in pedido.pedidoItem:
-            produto = self.produto_repository.buscar_por_id(item.id_produto)
+            produto = self.produto_repository.buscar_por_id_produto(item.id_produto)
 
             if produto is None:
                 raise ValueError(f"Produto {item.id_produto} não encontrado.")

@@ -1,3 +1,5 @@
+from datetime import date
+
 from app.models.pedido.PedidoCompra import PedidoCompra
 from app.repositories.pedido_compra_repository.PedidoCompraRepository import PedidoCompraRepository
 
@@ -16,6 +18,7 @@ class PedidoCompraService:
             raise ValueError("O pedido deve possuir pelo menos um item.")
 
         pedido.status = "PENDENTE"
+        pedido.data_pedido = date.today()
 
         pedido.valor_total = sum(
             item.valor_total for item in pedido.pedidoItem
