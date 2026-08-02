@@ -47,6 +47,15 @@ class ReservaService:
         reserva.status = "Cancelada"
         return self.repository.atualizar(reserva)
 
+    def definir_valor_total(self, id_reserva: int, valor_total: float) -> Reserva:
+        reserva = self.repository.buscar_por_id(id_reserva)
+        if reserva is None:
+            raise ValueError(f"Reserva #{id_reserva} não encontrada.")
+        if valor_total < 0:
+            raise ValueError("O valor total não pode ser negativo.")
+        reserva.valor_total = valor_total
+        return self.repository.atualizar(reserva)
+
     def atualizar_status_pagamento(self, id_reserva: int, novo_status: str) -> Reserva:
         """
         Alterna manualmente entre 'Pendente' e 'Confirmada' — o gatilho do

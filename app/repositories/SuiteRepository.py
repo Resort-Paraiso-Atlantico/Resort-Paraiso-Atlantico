@@ -23,3 +23,8 @@ class SuiteRepository:
         self.db.commit()
         self.db.refresh(suite)
         return suite
+
+    def buscar_por_numero(self, numero: int) -> Suite | None:
+        return self.db.query(Suite)\
+            .filter(Suite.numero == numero)\
+            .first()
