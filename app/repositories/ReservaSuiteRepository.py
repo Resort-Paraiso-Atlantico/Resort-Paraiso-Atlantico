@@ -1,7 +1,9 @@
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from app.models.ReservaSuite import ReservaSuite
+from app.models.Reserva import Reserva
 from datetime import date
+from sqlalchemy.orm import joinedload
 
 
 class ReservaSuiteRepository:
@@ -23,13 +25,6 @@ class ReservaSuiteRepository:
             self.db.query(ReservaSuite)
             .options(joinedload(ReservaSuite.suite))
             .filter(ReservaSuite.id_reserva == id_reserva)
-            .all()
-        )
-
-    def listar_por_suite(self, id_suite: int) -> list[ReservaSuite]:
-        return (
-            self.db.query(ReservaSuite)
-            .filter(ReservaSuite.id_suite == id_suite)
             .all()
         )
 
@@ -57,6 +52,7 @@ class ReservaSuiteRepository:
             ReservaSuite.data_entrada < data_saida,
             or_(ReservaSuite.data_saida.is_(None), ReservaSuite.data_saida > data_entrada),
         )
+        query = query.filter(~ReservaSuite.reserva.has(Reserva.status == "Cancelada"))
         return self.db.query(query.exists()).scalar()
     
     def atualizar(self, reserva_suite: ReservaSuite) -> ReservaSuite:
@@ -67,6 +63,10 @@ class ReservaSuiteRepository:
     def listar_por_suite(self, id_suite: int):
         return (
             self.db.query(ReservaSuite)
+            .options(
+                joinedload(ReservaSuite.reserva),
+                joinedload(ReservaSuite.suite)
+            )
             .filter(ReservaSuite.id_suite == id_suite)
             .order_by(ReservaSuite.data_entrada)
             .all()

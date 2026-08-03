@@ -546,7 +546,7 @@ with tab_hospedes:
                 id_reserva_alvo = opcoes_reserva[reserva_selecionada]
 
                 vinculos_da_reserva = reserva_suite_service.listar_por_reserva(id_reserva_alvo)
-                vinculos_ativos = [v for v in vinculos_da_reserva if v.data_saida is None]
+                vinculos_ativos = vinculos_da_reserva
 
                 st.divider()
                 st.markdown("**Suítes disponíveis para vincular**")
@@ -623,37 +623,13 @@ with tab_hospedes:
 
                         suite = vinculo.suite
 
-                        col1, col2, col3, col4, col5 = st.columns([1, 2, 2, 2, 1])
+                        col1, col2, col3 = st.columns([1, 2, 3])
 
                         col1.write(f"🛏️ Nº {suite.numero}")
                         col2.write(f"{suite.tipo} · {suite.capacidade} pax")
                         col3.write(
-                            f"R$ {vinculo.valor_diaria:,.2f}/dia · desde {vinculo.data_entrada}"
+                            f"R$ {vinculo.valor_diaria:,.2f}/dia · {vinculo.data_entrada} → {vinculo.data_saida}"
                         )
-
-                        data_saida = col4.date_input(
-                            "Saída",
-                            value=date.today(),
-                            key=f"ajustar_saida_{vinculo.id}",
-                            label_visibility="collapsed",
-                        )
-
-                        if col5.button("Desvincular", key=f"btn_desvincular_{vinculo.id}"):
-
-                            try:
-
-                                reserva_suite_service.registrar_saida(
-                                    vinculo.id,
-                                    data_saida,
-                                )
-
-                                st.rerun()
-
-                            except ValueError as e:
-                                st.error(str(e))
-
-                            except Exception as e:
-                                st.error(f"Erro: {e}")
 # ── Financeiro ───────────────────────────────────────────────────────────────────
 with tab_financeiro:
     st.subheader("Fechar o valor de uma reserva")
