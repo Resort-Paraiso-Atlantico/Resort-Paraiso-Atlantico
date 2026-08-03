@@ -40,8 +40,8 @@ def _reset_wizard():
 if "wiz_reserva" not in st.session_state:
     _reset_wizard()
 
-tab_criar, tab_listar, tab_hospedes, tab_suites, tab_financeiro = st.tabs(
-    ["🆕 Nova Reserva", "📋 Gerenciar Reservas", "👤 Hóspedes", "🔗 Ajustar Suítes", "💰 Financeiro"]
+tab_criar, tab_listar, tab_hospedes, tab_suites = st.tabs(
+    ["🆕 Nova Reserva", "📋 Gerenciar Reservas", "👤 Hóspedes", "🔗 Ajustar Suítes"]
 )
 
 # ── Nova Reserva (fluxo guiado) ─────────────────────────────────────────────────
@@ -286,6 +286,20 @@ with tab_criar:
                         except ValueError as e:
                             falhas.append(str(e))
 
+                    # Ao confirmar a reserva (mesmo ainda "Pendente" de pagamento),
+                    # já calculamos e gravamos o valor total das suítes vinculadas.
+                    # Sem isso, a reserva aparecia no Financeiro sem valor até que
+                    # alguém passasse manualmente pela aba "Ajustar Suítes". Assim,
+                    # ela já entra em "Receitas pendentes de confirmação".
+                    try:
+                        valor_total = vinculo_service.calcular_valor_total_reserva(id_reserva_criada)
+                        ReservaService(db).definir_valor_total(id_reserva_criada, valor_total)
+                    except ValueError:
+                        # Nenhuma suíte foi vinculada com sucesso: reserva fica
+                        # criada mesmo assim, mas sem valor até que uma suíte
+                        # seja vinculada (via aba "Ajustar Suítes").
+                        pass
+
                 wiz["step"] = 5
                 wiz["resultado_id"] = id_reserva_criada
                 wiz["resultado_falhas"] = falhas
@@ -361,6 +375,19 @@ with tab_listar:
                     try:
                         with SessionLocal() as db:
                             ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Confirmada")
+
+                            # Ao confirmar o pagamento, a reserva passa a contar como
+                            # receita no Financeiro global — por isso já calculamos e
+                            # travamos o valor total aqui (soma das suítes vinculadas),
+                            # em vez de depender de um passo manual separado.
+                            try:
+                                valor_total = ReservaSuiteService(db).calcular_valor_total_reserva(r.id_reserva)
+                                ReservaService(db).definir_valor_total(r.id_reserva, valor_total)
+                            except ValueError:
+                                # Sem suíte vinculada ainda: reserva fica confirmada mesmo
+                                # assim, mas sem valor até que uma suíte seja vinculada.
+                                pass
+
                         st.success(f"Reserva #{r.id_reserva} confirmada!")
                         st.rerun()
                     except ValueError as e:
@@ -602,6 +629,15 @@ with tab_hospedes:
                                     data_saida=data_saida,
                                 )
 
+                                # Recalcula o valor total sempre que uma suíte é
+                                # vinculada, independente do status da reserva. Assim,
+                                # mesmo "Pendente", o valor já aparece no Financeiro
+                                # global (em "Receitas pendentes de confirmação"); ao
+                                # confirmar o pagamento, esse mesmo valor passa a
+                                # contar como receita efetiva.
+                                novo_valor = reserva_suite_service.calcular_valor_total_reserva(id_reserva_alvo)
+                                reserva_service.definir_valor_total(id_reserva_alvo, novo_valor)
+
                                 st.session_state["msg_vinculo"] = "Suíte vinculada com sucesso!"
                                 st.rerun()
 
@@ -630,57 +666,21 @@ with tab_hospedes:
                         col3.write(
                             f"R$ {vinculo.valor_diaria:,.2f}/dia · {vinculo.data_entrada} → {vinculo.data_saida}"
                         )
-# ── Financeiro ───────────────────────────────────────────────────────────────────
-with tab_financeiro:
-    st.subheader("Fechar o valor de uma reserva")
-    st.caption("Soma o valor de todas as suítes vinculadas e, se quiser, salva como valor total da reserva.")
 
-    with SessionLocal() as db:
-        reservas_fin = ReservaService(db).listar_reservas()
-        nomes_fin = {r.id_reserva: (r.hospede.nome if r.hospede else r.cpf_hospede) for r in reservas_fin}
+                st.divider()
+                st.subheader("Corrigir data de entrada de um vínculo")
+                id_vinculo_corrigir = st.number_input(
+                    "ID do vínculo (ReservaSuite)", min_value=1, step=1, key="id_corrigir"
+                )
+                nova_data_entrada = st.date_input(
+                    "Nova data de entrada", value=date.today(), key="nova_data_entrada"
+                )
 
-    if not reservas_fin:
-        st.info("Nenhuma reserva cadastrada.")
-    else:
-        opcoes_fin = {
-            f"#{r.id_reserva} — {nomes_fin[r.id_reserva]} ({r.status})": r.id_reserva for r in reservas_fin
-        }
-        reserva_fin = st.selectbox("Selecione a reserva", list(opcoes_fin.keys()), key="select_financeiro")
-        id_reserva_fin = opcoes_fin[reserva_fin]
-
-        if st.button("Calcular valor total", use_container_width=True):
-            try:
-                with SessionLocal() as db:
-                    valor_calculado = ReservaSuiteService(db).calcular_valor_total_reserva(id_reserva_fin)
-                st.session_state["valor_calculado"] = valor_calculado
-                st.session_state["valor_calculado_id_reserva"] = id_reserva_fin
-                st.success(f"Valor calculado: R$ {valor_calculado:,.2f}")
-            except ValueError as e:
-                st.error(str(e))
-                st.session_state.pop("valor_calculado", None)
-                st.session_state.pop("valor_calculado_id_reserva", None)
-
-        if st.session_state.get("valor_calculado_id_reserva") == id_reserva_fin:
-            if st.button("💾 Salvar como valor total da reserva", use_container_width=True):
-                try:
-                    with SessionLocal() as db:
-                        ReservaService(db).definir_valor_total(id_reserva_fin, st.session_state["valor_calculado"])
-                    st.success("Valor total da reserva atualizado!")
-                    del st.session_state["valor_calculado"]
-                    del st.session_state["valor_calculado_id_reserva"]
-                    st.rerun()
-                except ValueError as e:
-                    st.error(str(e))
-
-        st.divider()
-        st.subheader("Corrigir data de entrada de um vínculo")
-        id_vinculo_corrigir = st.number_input("ID do vínculo (ReservaSuite)", min_value=1, step=1, key="id_corrigir")
-        nova_data_entrada = st.date_input("Nova data de entrada", value=date.today(), key="nova_data_entrada")
-
-        if st.button("Corrigir", use_container_width=True, key="btn_corrigir"):
-            try:
-                with SessionLocal() as db:
-                    ReservaSuiteService(db).corrigir_data_entrada(int(id_vinculo_corrigir), nova_data_entrada)
-                st.success("Data de entrada corrigida com sucesso!")
-            except ValueError as e:
-                st.error(str(e))
+                if st.button("Corrigir", use_container_width=True, key="btn_corrigir"):
+                    try:
+                        with SessionLocal() as db:
+                            ReservaSuiteService(db).corrigir_data_entrada(int(id_vinculo_corrigir), nova_data_entrada)
+                        st.success("Data de entrada corrigida com sucesso!")
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))

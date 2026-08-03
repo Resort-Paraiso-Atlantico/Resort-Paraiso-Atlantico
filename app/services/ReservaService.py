@@ -39,6 +39,9 @@ class ReservaService:
     def buscar_por_cpf(self, cpf: str) -> list[Reserva]:
         return self.repository.buscar_por_cpf(cpf)
 
+    def buscar_por_id(self, id_reserva: int) -> Reserva | None:
+        return self.repository.buscar_por_id(id_reserva)
+
     def cancelar_reserva(self, id_reserva: int) -> Reserva:
         reserva = self.repository.buscar_por_id(id_reserva)
         if not reserva:
