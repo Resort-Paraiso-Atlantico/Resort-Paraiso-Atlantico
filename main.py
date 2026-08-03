@@ -19,6 +19,7 @@ with col3:
 # se quiser usar as paginas antigas comenta esse pg e tira o comentario do outro.
 pg = st.navigation([
     st.Page("app/pages/Painel.py", title="Painel", icon="🏠"),
+    st.Page("app/pages/financeiro_page/FinanceiroPage.py", title="Financeiro", icon="💰"),
     st.Page("app/pages/Reservas.py", title="Reservas", icon="📋"),
     st.Page("app/pages/Recepcao.py", title="Recepção", icon="🔑"),
     st.Page("app/pages/Suites.py", title="Suítes", icon="🛏️"),
