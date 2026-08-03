@@ -222,7 +222,10 @@ with tab_historico:
 
                 for v in vinculos:
 
-                    if (
+                    if v.reserva.status == "Cancelada":
+                        situacao = "🔴 Cancelada"
+
+                    elif (
                         v.data_entrada <= hoje
                         and (
                             v.data_saida is None
@@ -274,7 +277,8 @@ with tab_historico:
 
 
                 ocupada = any(
-                    v.data_entrada <= hoje
+                    v.reserva.status != "Cancelada"
+                    and v.data_entrada <= hoje
                     and (
                         v.data_saida is None
                         or hoje <= v.data_saida

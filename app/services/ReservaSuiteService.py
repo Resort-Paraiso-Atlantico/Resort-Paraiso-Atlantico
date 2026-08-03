@@ -57,30 +57,6 @@ class ReservaSuiteService:
             raise ValueError("Deve ter id da reserva.")
 
         return self.repository.listar_por_reserva(id_reserva)
-        
-    #ver todas as reservas que ja tiveram essa suite
-    def listar_por_suite(self,id_suite:int):
-        if id_suite is None:
-            raise ValueError("Deve ter id da suite.")
-        
-        return self.repository.listar_por_suite(id_suite)
-    
-    def registrar_saida(self, id: int, data_saida: date) -> ReservaSuite:
-        reserva_suite = self.repository.buscar_por_id(id)
-
-        if reserva_suite is None:
-            raise ValueError("Vínculo Reserva-Suite não encontrado.")
-
-        if reserva_suite.data_saida is not None:
-            raise ValueError("Essa estadia já foi encerrada.")
-
-        if data_saida < reserva_suite.data_entrada:
-            raise ValueError("Data de saída não pode ser anterior à data de entrada.")
-
-        reserva_suite.data_saida = data_saida
-        reserva_suite = self.repository.atualizar(reserva_suite)
-
-        return reserva_suite
     
     def calcular_valor_estadia(self, id: int) -> float:
         reserva_suite = self.repository.buscar_por_id(id)

@@ -16,8 +16,6 @@ class SuiteService:
     def criar_suite(self,numero: int ,tipo: str , capacidade:int,valor_diaria: float,status: str):
 
         if capacidade <= 0: raise ValueError("Capacidade deve ser no minimo 1.")
-        print("CAPACIDADE RECEBIDA:", capacidade)
-        print("TIPO:", type(capacidade))
 
         if valor_diaria <= 0: raise ValueError("Valor da diaria deve ser no minimo 1.")
         if self.repository.buscar_por_numero(numero):

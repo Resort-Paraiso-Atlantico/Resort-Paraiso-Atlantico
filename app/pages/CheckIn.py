@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import date
 from app.database import SessionLocal
 from app.services.ReservaService import ReservaService
 from app.services.ReservaSuiteService import ReservaSuiteService
@@ -14,7 +15,11 @@ cabecalho("Check-in / Check-out", "Dê entrada ou saída dos hóspedes", "🔑")
 
 def _suites_vinculadas_texto(db, id_reserva: int) -> str:
     vinculo_service = ReservaSuiteService(db)
-    vinculos = [v for v in vinculo_service.listar_por_reserva(id_reserva) if v.data_saida is None]
+    hoje = date.today()
+    vinculos = [
+        v for v in vinculo_service.listar_por_reserva(id_reserva)
+        if v.data_saida is None or v.data_saida >= hoje
+    ]
     if not vinculos:
         return "nenhuma suíte vinculada"
     numeros = ", ".join(f"nº {v.suite.numero}" for v in vinculos)
@@ -141,9 +146,11 @@ with tab_consulta:
 
                 for r in reservas_ordenadas:
                     vinculos = vinculo_service.listar_por_reserva(r.id_reserva)
+                    hoje = date.today()
                     if vinculos:
                         suites_texto = ", ".join(
-                            f"nº {v.suite.numero}" + (" (ativa)" if v.data_saida is None else f" (saiu {v.data_saida})")
+                            f"nº {v.suite.numero}"
+                            + (" (ativa)" if (v.data_saida is None or v.data_saida >= hoje) else f" (saiu {v.data_saida})")
                             for v in vinculos
                         )
                     else:

@@ -13,6 +13,7 @@ class ReservaService:
         self.repository = ReservaRepository(db)
         self.reserva_suite_repository = ReservaSuiteRepository(db)
         self.suite_repository = SuiteRepository(db)
+        
 
     def criar_reserva(
         self,
@@ -101,16 +102,17 @@ class ReservaService:
                 f"'{reserva.status}'. É necessário confirmar o pagamento antes."
             )
 
+        hoje = date.today()
+
         vinculos_ativos = [
             v for v in self.reserva_suite_repository.listar_por_reserva(id_reserva)
-            if v.data_saida is None
+            if v.data_saida is None or v.data_saida >= hoje
         ]
         if not vinculos_ativos:
             raise ValueError(
                 "Não é possível fazer check-in: nenhuma suíte vinculada a esta reserva."
             )
 
-        hoje = date.today()
         aviso = None
 
         if reserva.checkin_previsto and hoje < reserva.checkin_previsto:
@@ -150,12 +152,13 @@ class ReservaService:
                 f"Não é possível fazer check-out: reserva está com status '{reserva.status}'."
             )
 
+        hoje = date.today()
+
         vinculos_ativos = [
             v for v in self.reserva_suite_repository.listar_por_reserva(id_reserva)
-            if v.data_saida is None
+            if v.data_saida is None or v.data_saida >= hoje
         ]
 
-        hoje = date.today()
         for vinculo in vinculos_ativos:
             vinculo.data_saida = hoje
             self.reserva_suite_repository.atualizar(vinculo)
