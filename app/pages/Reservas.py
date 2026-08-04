@@ -7,6 +7,7 @@ from app.services.ReservaSuiteService import ReservaSuiteService
 from app.services.SuiteService import SuiteService
 from app.services.HospedeService import HospedeService
 from app.theme import aplicar_tema, cabecalho, badge_status
+from app.utils.search_utils import atende_termo_busca, sanitizar_documento
 import pandas as pd
 
 if not st.user.is_logged_in:
@@ -70,14 +71,32 @@ with tab_criar:
 
     # ── Passo 1: Hóspede ────────────────────────────────────────────────────────
     if etapa == 1:
-        st.subheader("Passo 1 — O hóspede já é cadastrado?")
-        st.caption("Digite o CPF para buscar. Se não encontrarmos, você cadastra na hora, sem sair da tela.")
+        st.subheader("Passo 1 — Selecione ou Cadastre o Hóspede")
+        st.caption("Selecione um hóspede cadastrado na lista ou informe o CPF para buscar.")
 
+        with SessionLocal() as db:
+            todos_hospedes = HospedeService(db).listar_hospedes()
+
+        if todos_hospedes:
+            hospede_sel = st.selectbox(
+                "🔎 Buscar hóspede cadastrado por Nome ou CPF",
+                todos_hospedes,
+                format_func=lambda h: f"{h.nome} (CPF: {_formatar_cpf(h.cpf)})",
+                index=None,
+                placeholder="Digite o nome ou CPF para pesquisar..."
+            )
+
+            if hospede_sel:
+                wiz["cpf"] = hospede_sel.cpf
+                wiz["hospede_nome"] = hospede_sel.nome
+                wiz["hospede_encontrado"] = True
+
+        st.markdown("**Ou digite o CPF manualmente:**")
         cpf_input = st.text_input(
             "CPF do hóspede", placeholder="Somente números ou 000.000.000-00", max_chars=14
         )
 
-        if st.button("🔍 Buscar hóspede", type="primary", use_container_width=True):
+        if st.button("🔍 Buscar por CPF", type="secondary", use_container_width=True):
             cpf_limpo = _somente_digitos(cpf_input)
             if len(cpf_limpo) != 11:
                 st.error("CPF inválido — informe os 11 dígitos.")
@@ -93,7 +112,7 @@ with tab_criar:
                 st.rerun()
 
         if wiz.get("cpf") and wiz.get("hospede_encontrado"):
-            st.success(f"✅ Hóspede encontrado: **{wiz['hospede_nome']}** ({_formatar_cpf(wiz['cpf'])})")
+            st.success(f"✅ Hóspede selecionado: **{wiz['hospede_nome']}** ({_formatar_cpf(wiz['cpf'])})")
             if st.button("Próximo ➜", type="primary", use_container_width=True):
                 wiz["step"] = 2
                 st.rerun()
@@ -454,13 +473,15 @@ with tab_hospedes:
 
         st.metric("Total de hóspedes", len(hospedes))
 
-        busca_nome = st.text_input("Buscar por nome (opcional)", key="busca_nome_listar")
-        if busca_nome.strip():
-            hospedes = [h for h in hospedes if busca_nome.strip().lower() in h.nome.lower()]
+        busca_termo = st.text_input("🔍 Pesquisar por Nome, CPF, E-mail ou Telefone", key="busca_hospedes_gerenciar")
+        hospedes_filtrados = [
+            h for h in hospedes
+            if atende_termo_busca(busca_termo, h.nome, h.cpf, h.email, h.telefone, h.endereco)
+        ]
 
-        if hospedes:
+        if hospedes_filtrados:
             cols = st.columns(2)
-            for i, h in enumerate(hospedes):
+            for i, h in enumerate(hospedes_filtrados):
                 with cols[i % 2]:
                     st.markdown(
                         f"""
@@ -476,60 +497,79 @@ with tab_hospedes:
                         unsafe_allow_html=True,
                     )
         else:
-            st.info("Nenhum hóspede cadastrado.")
+            if busca_termo:
+                st.info(f"Nenhum hóspede encontrado para '{busca_termo}'.")
+            else:
+                st.info("Nenhum hóspede cadastrado.")
 
     with aba_atualizar:
-        cpf_busca = st.text_input("CPF do hóspede", key="cpf_atualizar", placeholder="Somente números ou 000.000.000-00")
-        if st.button("Buscar", key="buscar_atualizar"):
-            try:
-                with SessionLocal() as db:
-                    hospede = HospedeService(db).buscar_por_cpf(_somente_digitos(cpf_busca))
-                if hospede is None:
-                    st.warning("Hóspede não encontrado.")
-                    st.session_state.pop("hospede_editando", None)
-                else:
-                    st.session_state["hospede_editando"] = hospede
-            except ValueError as e:
-                st.error(str(e))
+        with SessionLocal() as db:
+            todos_hospedes = HospedeService(db).listar_hospedes()
 
-        if "hospede_editando" in st.session_state:
-            h = st.session_state["hospede_editando"]
-            st.caption(f"Editando: {h.nome} — CPF {_formatar_cpf(h.cpf)}")
-            with st.form("form_atualizar_hospede"):
-                nome = st.text_input("Nome", value=h.nome)
-                telefone = st.text_input("Telefone", value=h.telefone)
-                email = st.text_input("Email", value=h.email)
-                endereco = st.text_input("Endereço", value=h.endereco)
-                submitted = st.form_submit_button("Salvar alterações")
+        if not todos_hospedes:
+            st.info("Nenhum hóspede cadastrado para edição.")
+        else:
+            hospede_sel = st.selectbox(
+                "Selecione o hóspede a editar",
+                todos_hospedes,
+                format_func=lambda h: f"{h.nome} (CPF: {_formatar_cpf(h.cpf)})",
+                key="select_hospede_atualizar",
+                index=None,
+                placeholder="Busque por nome ou CPF..."
+            )
 
-                if submitted:
-                    if not nome.strip():
-                        st.error("Nome é obrigatório.")
-                    elif not _email_valido(email):
-                        st.error("Informe um e-mail válido.")
-                    else:
-                        try:
-                            with SessionLocal() as db:
-                                HospedeService(db).atualizar_hospede(
-                                    h.cpf, nome.strip(), telefone.strip(), email.strip(), endereco.strip()
-                                )
-                            st.success("Hóspede atualizado com sucesso!")
-                            del st.session_state["hospede_editando"]
-                            st.rerun()
-                        except ValueError as e:
-                            st.error(str(e))
+            if hospede_sel:
+                st.caption(f"Editando: {hospede_sel.nome} — CPF {_formatar_cpf(hospede_sel.cpf)}")
+                with st.form("form_atualizar_hospede"):
+                    nome = st.text_input("Nome", value=hospede_sel.nome)
+                    telefone = st.text_input("Telefone", value=hospede_sel.telefone or "")
+                    email = st.text_input("Email", value=hospede_sel.email or "")
+                    endereco = st.text_input("Endereço", value=hospede_sel.endereco or "")
+                    submitted = st.form_submit_button("Salvar alterações", type="primary")
+
+                    if submitted:
+                        if not nome.strip():
+                            st.error("Nome é obrigatório.")
+                        elif not _email_valido(email):
+                            st.error("Informe um e-mail válido.")
+                        else:
+                            try:
+                                with SessionLocal() as db:
+                                    HospedeService(db).atualizar_hospede(
+                                        hospede_sel.cpf, nome.strip(), telefone.strip(), email.strip(), endereco.strip()
+                                    )
+                                st.success("Hóspede atualizado com sucesso!")
+                                st.rerun()
+                            except ValueError as e:
+                                st.error(str(e))
 
     with aba_remover:
         st.caption("Só é possível remover hóspedes que não tenham nenhuma reserva cadastrada.")
-        cpf_remover = st.text_input("CPF do hóspede", key="cpf_remover", placeholder="Somente números ou 000.000.000-00")
-        confirmar = st.checkbox("Confirmo que desejo remover permanentemente este hóspede.")
-        if st.button("Remover", disabled=not confirmar):
-            try:
-                with SessionLocal() as db:
-                    HospedeService(db).remover_hospede(_somente_digitos(cpf_remover))
-                st.success("Hóspede removido com sucesso!")
-            except ValueError as e:
-                st.error(str(e))
+        with SessionLocal() as db:
+            todos_hospedes = HospedeService(db).listar_hospedes()
+
+        if not todos_hospedes:
+            st.info("Nenhum hóspede disponível para remoção.")
+        else:
+            hospede_rem = st.selectbox(
+                "Selecione o hóspede a remover",
+                todos_hospedes,
+                format_func=lambda h: f"{h.nome} (CPF: {_formatar_cpf(h.cpf)})",
+                key="select_hospede_remover",
+                index=None,
+                placeholder="Busque por nome ou CPF..."
+            )
+
+            if hospede_rem:
+                confirmar = st.checkbox(f"Confirmo que desejo remover permanentemente o hóspede {hospede_rem.nome}.")
+                if st.button("Remover Hóspede", type="primary", disabled=not confirmar):
+                    try:
+                        with SessionLocal() as db:
+                            HospedeService(db).remover_hospede(hospede_rem.cpf)
+                        st.success("Hóspede removido com sucesso!")
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))
 
 # ── Ajustar Suítes ────────────────────────────────────────────────────────────────
     with tab_suites:
