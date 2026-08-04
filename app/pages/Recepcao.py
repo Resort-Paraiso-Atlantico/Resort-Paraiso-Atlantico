@@ -3,6 +3,7 @@ from datetime import date
 from app.database import SessionLocal
 from app.services.ReservaService import ReservaService
 from app.services.ReservaSuiteService import ReservaSuiteService
+from app.services.HospedeService import HospedeService
 from app.theme import aplicar_tema, cabecalho, badge_status
 
 if not st.user.is_logged_in:
@@ -119,28 +120,35 @@ with tab_checkout:
                 except Exception as e:
                     st.error(f"Erro: {e}")
 
-# ── Consultar por CPF ────────────────────────────────────────────────────────────
+# ── Consultar por Hóspede (Nome ou CPF) ──────────────────────────────────────────
 with tab_consulta:
     st.subheader("Histórico de check-in / check-out por hóspede")
 
-    cpf_busca = st.text_input("CPF do hóspede", placeholder="000.000.000-00", key="cpf_consulta")
+    with SessionLocal() as db:
+        hospedes = HospedeService(db).listar_hospedes()
 
-    if st.button("Buscar", key="btn_buscar_cpf"):
-        st.session_state["cpf_consultado"] = cpf_busca
+    if not hospedes:
+        st.info("Nenhum hóspede cadastrado no sistema.")
+    else:
+        hospede_sel = st.selectbox(
+            "Selecione o hóspede",
+            hospedes,
+            format_func=lambda h: f"{h.nome} (CPF: {h.cpf[:3]}.***.***-{h.cpf[-2:]})",
+            index=None,
+            placeholder="Digite o nome ou CPF do hóspede..."
+        )
 
-    cpf_alvo = st.session_state.get("cpf_consultado")
+        if hospede_sel:
+            cpf_alvo = hospede_sel.cpf
+            with SessionLocal() as db:
+                service = ReservaService(db)
+                reservas = service.buscar_por_cpf(cpf_alvo)
+                vinculo_service = ReservaSuiteService(db)
 
-    if cpf_alvo:
-        with SessionLocal() as db:
-            service = ReservaService(db)
-            reservas = service.buscar_por_cpf(cpf_alvo)
-            vinculo_service = ReservaSuiteService(db)
-
-            if not reservas:
-                st.info(f"Nenhuma reserva encontrada para o CPF {cpf_alvo}.")
-            else:
-                nome_hospede = reservas[0].hospede.nome if reservas[0].hospede else cpf_alvo
-                st.markdown(f"**{len(reservas)} reserva(s) encontrada(s) para {nome_hospede}**")
+                if not reservas:
+                    st.info(f"Nenhuma reserva encontrada para **{hospede_sel.nome}**.")
+                else:
+                    st.markdown(f"**{len(reservas)} reserva(s) encontrada(s) para {hospede_sel.nome}**")
 
                 reservas_ordenadas = sorted(reservas, key=lambda r: r.data_reserva, reverse=True)
 

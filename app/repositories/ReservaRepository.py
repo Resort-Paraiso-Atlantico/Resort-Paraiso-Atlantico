@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models.Reserva import Reserva
 from datetime import date
 
@@ -12,21 +12,46 @@ class ReservaRepository:
         self.db.add(reserva)
         self.db.commit()
         self.db.refresh(reserva)
-        return reserva
+        return self.buscar_por_id(reserva.id_reserva) or reserva
 
     def listar_todas(self) -> list[Reserva]:
-        return self.db.query(Reserva).all()
+        return (
+            self.db.query(Reserva)
+            .options(
+                joinedload(Reserva.hospede),
+                joinedload(Reserva.reserva_suites)
+            )
+            .order_by(Reserva.id_reserva.desc())
+            .all()
+        )
 
     def buscar_por_id(self, id_reserva: int) -> Reserva | None:
-        return self.db.query(Reserva).filter(Reserva.id_reserva == id_reserva).first()
+        return (
+            self.db.query(Reserva)
+            .options(
+                joinedload(Reserva.hospede),
+                joinedload(Reserva.reserva_suites)
+            )
+            .filter(Reserva.id_reserva == id_reserva)
+            .first()
+        )
 
     def buscar_por_cpf(self, cpf: str) -> list[Reserva]:
-        return self.db.query(Reserva).filter(Reserva.cpf_hospede == cpf).all()
+        return (
+            self.db.query(Reserva)
+            .options(
+                joinedload(Reserva.hospede),
+                joinedload(Reserva.reserva_suites)
+            )
+            .filter(Reserva.cpf_hospede == cpf)
+            .order_by(Reserva.id_reserva.desc())
+            .all()
+        )
 
     def atualizar(self, reserva: Reserva) -> Reserva:
         self.db.commit()
         self.db.refresh(reserva)
-        return reserva
+        return self.buscar_por_id(reserva.id_reserva) or reserva
 
     def deletar(self, reserva: Reserva) -> None:
         self.db.delete(reserva)
