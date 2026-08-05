@@ -24,7 +24,7 @@ with tab_criar:
         valor_diaria = st.number_input("Valor da Diária (R$)", min_value=0.0, format="%.2f")
         status = st.selectbox("Status", ["Disponível", "Ocupada", "Manutenção"])
 
-        submitted = st.form_submit_button("Cadastrar", use_container_width=True)
+        submitted = st.form_submit_button("Cadastrar", width="stretch")
 
     if submitted:
         try:
@@ -69,7 +69,7 @@ with tab_listar:
         )
         with col_atualizar:
             st.write("")
-            if st.button("🔄 Atualizar", use_container_width=True):
+            if st.button("🔄 Atualizar", width="stretch"):
                 st.rerun()
 
         suites = [s for s in todas_suites if s.tipo in filtro_tipo]

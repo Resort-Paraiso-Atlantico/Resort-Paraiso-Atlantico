@@ -56,7 +56,7 @@ with tab_criar:
 
         col_titulo, col_reiniciar = st.columns([5, 1])
         with col_reiniciar:
-            if st.button("🔄 Recomeçar", use_container_width=True):
+            if st.button("🔄 Recomeçar", width="stretch"):
                 _reset_wizard()
                 st.rerun()
         st.divider()
@@ -70,7 +70,7 @@ with tab_criar:
             "CPF do hóspede", placeholder="Somente números ou 000.000.000-00", max_chars=14
         )
 
-        if st.button("🔍 Buscar hóspede", type="primary", use_container_width=True):
+        if st.button("🔍 Buscar hóspede", type="primary", width="stretch"):
             cpf_limpo = _somente_digitos(cpf_input)
             if len(cpf_limpo) != 11:
                 st.error("CPF inválido — informe os 11 dígitos.")
@@ -87,7 +87,7 @@ with tab_criar:
 
         if wiz.get("cpf") and wiz.get("hospede_encontrado"):
             st.success(f"✅ Hóspede encontrado: **{wiz['hospede_nome']}** ({_formatar_cpf(wiz['cpf'])})")
-            if st.button("Próximo ➜", type="primary", use_container_width=True):
+            if st.button("Próximo ➜", type="primary", width="stretch"):
                 wiz["step"] = 2
                 st.rerun()
 
@@ -98,7 +98,7 @@ with tab_criar:
                 telefone = st.text_input("Telefone")
                 email = st.text_input("E-mail")
                 endereco = st.text_input("Endereço")
-                cadastrar = st.form_submit_button("Cadastrar e continuar", type="primary", use_container_width=True)
+                cadastrar = st.form_submit_button("Cadastrar e continuar", type="primary", width="stretch")
 
             if cadastrar:
                 if not nome.strip() or not telefone.strip() or not email.strip():
@@ -133,10 +133,10 @@ with tab_criar:
             st.caption(f"🛎️ {(checkout - checkin).days} diária(s)")
 
         col_voltar, col_prox = st.columns(2)
-        if col_voltar.button("⬅ Voltar", use_container_width=True):
+        if col_voltar.button("⬅ Voltar", width="stretch"):
             wiz["step"] = 1
             st.rerun()
-        if col_prox.button("Próximo ➜", type="primary", use_container_width=True):
+        if col_prox.button("Próximo ➜", type="primary", width="stretch"):
             if checkin >= checkout:
                 st.error("A data de check-in deve ser anterior ao check-out.")
             else:
@@ -191,10 +191,10 @@ with tab_criar:
                 st.success(f"{len(selecionadas)} suíte(s) selecionada(s) · Estimativa: R$ {estimativa:,.2f}")
 
         col_voltar, col_prox = st.columns(2)
-        if col_voltar.button("⬅ Voltar", use_container_width=True):
+        if col_voltar.button("⬅ Voltar", width="stretch"):
             wiz["step"] = 2
             st.rerun()
-        if col_prox.button("Próximo ➜", type="primary", use_container_width=True):
+        if col_prox.button("Próximo ➜", type="primary", width="stretch"):
             if not wiz.get("suites_sel"):
                 st.error("Selecione ao menos uma suíte.")
             else:
@@ -232,11 +232,11 @@ with tab_criar:
         st.caption("A reserva é criada com status **Pendente**, aguardando confirmação de pagamento.")
 
         col_voltar, col_confirmar = st.columns(2)
-        if col_voltar.button("⬅ Voltar", use_container_width=True):
+        if col_voltar.button("⬅ Voltar", width="stretch"):
             wiz["step"] = 3
             st.rerun()
 
-        if col_confirmar.button("✅ Confirmar Reserva", type="primary", use_container_width=True):
+        if col_confirmar.button("✅ Confirmar Reserva", type="primary", width="stretch"):
             try:
                 with SessionLocal() as db:
                     reserva = ReservaService(db).criar_reserva(
@@ -272,7 +272,7 @@ with tab_criar:
         if wiz.get("resultado_falhas"):
             st.warning("Algumas suítes não puderam ser vinculadas: " + "; ".join(wiz["resultado_falhas"]))
             st.caption("Use a aba **Ajustar Suítes** para tentar vincular novamente.")
-        if st.button("➕ Cadastrar outra reserva", type="primary", use_container_width=True):
+        if st.button("➕ Cadastrar outra reserva", type="primary", width="stretch"):
             _reset_wizard()
             st.rerun()
 
@@ -328,7 +328,7 @@ with tab_listar:
             col_a, col_b, col_c = st.columns(3)
 
             if r.status == "Pendente":
-                if col_a.button("✅ Confirmar pagamento", key=f"confirmar_{r.id_reserva}", use_container_width=True):
+                if col_a.button("✅ Confirmar pagamento", key=f"confirmar_{r.id_reserva}", width="stretch"):
                     try:
                         with SessionLocal() as db:
                             ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Confirmada")
@@ -338,7 +338,7 @@ with tab_listar:
                         st.error(str(e))
 
             elif r.status == "Confirmada":
-                if col_a.button("↩️ Reverter p/ Pendente", key=f"reverter_{r.id_reserva}", use_container_width=True):
+                if col_a.button("↩️ Reverter p/ Pendente", key=f"reverter_{r.id_reserva}", width="stretch"):
                     try:
                         with SessionLocal() as db:
                             ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Pendente")
@@ -348,7 +348,7 @@ with tab_listar:
                         st.error(str(e))
 
             if r.status in ("Pendente", "Confirmada"):
-                if col_b.button("🚫 Cancelar reserva", key=f"cancelar_{r.id_reserva}", use_container_width=True):
+                if col_b.button("🚫 Cancelar reserva", key=f"cancelar_{r.id_reserva}", width="stretch"):
                     try:
                         with SessionLocal() as db:
                             ReservaService(db).cancelar_reserva(r.id_reserva)

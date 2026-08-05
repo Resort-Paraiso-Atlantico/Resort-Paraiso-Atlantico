@@ -12,7 +12,7 @@ if not st.user.is_logged_in:
     st.stop()
 
 aplicar_tema()
-cabecalho("Estoque", "Controle de entrada e saída de produtos", "📦")
+cabecalho("Estoque", "Controle de movimentações, entrada e saída de produtos", "📦")
 
 with SessionLocal() as db:
     estoque_service = EstoqueService(db)
@@ -20,7 +20,7 @@ with SessionLocal() as db:
     pedido_service = PedidoCompraService(db)
 
     aba_consultar, aba_entrada, aba_saida, aba_receber = st.tabs(
-        ["Consultar", "Entrada", "Saída", "Receber Pedido"]
+        ["📋 Consultar", "📥 Entrada Manual", "📤 Saída / Baixa", "🚚 Receber Pedido"]
     )
 
     with aba_consultar:
@@ -45,16 +45,16 @@ with SessionLocal() as db:
                         "Código": p.id_produto,
                         "Produto": p.nome,
                         "Categoria": p.categoria,
-                        "Quantidade Atual": p.quantidade,
-                        "Estoque Mínimo": p.estoque_minimo,
-                        "Valor Unitário (R$)": f"{p.valor_unitario:.2f}",
-                        "Valor Total (R$)": f"{(p.quantidade * p.valor_unitario):.2f}",
+                        "Qtd Atual": p.quantidade,
+                        "Mínimo": p.estoque_minimo,
+                        "Valor Unit. (R$)": f"R$ {p.valor_unitario:,.2f}",
+                        "Valor Total (R$)": f"R$ {(p.quantidade * p.valor_unitario):,.2f}",
                         "Status": "🔴 Crítico" if p.quantidade == 0 else ("🟡 Baixo" if p.quantidade <= p.estoque_minimo else "🟢 Normal")
                     }
                     for p in produtos_filtrados
                 ]
 
-                st.dataframe(dados, use_container_width=True)
+                st.dataframe(dados, width="stretch")
 
     with aba_entrada:
         st.subheader("Registrar Entrada Manual")

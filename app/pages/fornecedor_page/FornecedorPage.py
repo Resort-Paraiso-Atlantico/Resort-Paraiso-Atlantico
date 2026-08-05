@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.database import SessionLocal
 from app.services.fornecedor_service.FornecedorService import FornecedorService
-from app.theme import aplicar_tema, cabecalho
+from app.theme import aplicar_tema, cabecalho, card_item
 from app.utils.search_utils import atende_termo_busca, sanitizar_documento
 
 if not st.user.is_logged_in:
@@ -11,15 +11,50 @@ if not st.user.is_logged_in:
     st.stop()
 
 aplicar_tema()
-cabecalho("Fornecedores", "Cadastre e gerencie os dados dos fornecedores", "🚚")
+cabecalho("Fornecedores", "Cadastre e gerencie os parceiros e fornecedores do resort", "🚚")
 
 with SessionLocal() as db:
     service = FornecedorService(db)
     fornecedores = service.listar_fornecedores()
 
-    aba_cadastrar, aba_listar, aba_atualizar, aba_remover = st.tabs(
-        ["Cadastrar", "Listar", "Atualizar", "Remover"]
+    aba_listar, aba_cadastrar, aba_atualizar, aba_remover = st.tabs(
+        ["📋 Listar", "➕ Cadastrar", "✏️ Editar", "🗑️ Remover"]
     )
+
+    with aba_listar:
+        st.subheader("Todos os fornecedores")
+        
+        c1, c2 = st.columns([3, 1])
+        with c1:
+            termo_busca = st.text_input("🔍 Pesquisar por Nome, CNPJ, E-mail ou Telefone", key="busca_fornecedores")
+        with c2:
+            st.metric("Total Cadastrado", len(fornecedores))
+
+        fornecedores_filtrados = [
+            f for f in fornecedores
+            if atende_termo_busca(termo_busca, f.nome, f.cnpj, f.email, f.telefone, f.endereco)
+        ]
+
+        st.divider()
+
+        if fornecedores_filtrados:
+            cols = st.columns(2)
+            for i, h in enumerate(fornecedores_filtrados):
+                detalhes = f"""
+                <strong>CNPJ:</strong> {h.cnpj}<br>
+                📞 {h.telefone or '—'} &nbsp;·&nbsp; ✉️ {h.email or '—'}<br>
+                📍 {h.endereco or '—'}
+                """
+                with cols[i % 2]:
+                    st.markdown(
+                        card_item(h.nome, "Fornecedor Registrado", detalhes, status="Ativo"),
+                        unsafe_allow_html=True,
+                    )
+        else:
+            if termo_busca:
+                st.info(f"Nenhum fornecedor encontrado para '{termo_busca}'.")
+            else:
+                st.info("Nenhum fornecedor cadastrado.")
 
     with aba_cadastrar:
         st.subheader("Cadastrar novo fornecedor")
@@ -41,38 +76,6 @@ with SessionLocal() as db:
                     st.error(str(e))
                 except IntegrityError:
                     st.error("Já existe um fornecedor cadastrado com este CNPJ.")
-
-    with aba_listar:
-        st.subheader("Todos os fornecedores")
-        termo_busca = st.text_input("🔍 Pesquisar por Nome, CNPJ, E-mail ou Telefone", key="busca_fornecedores")
-
-        fornecedores_filtrados = [
-            f for f in fornecedores
-            if atende_termo_busca(termo_busca, f.nome, f.cnpj, f.email, f.telefone, f.endereco)
-        ]
-
-        if fornecedores_filtrados:
-            cols = st.columns(2)
-            for i, h in enumerate(fornecedores_filtrados):
-                with cols[i % 2]:
-                    st.markdown(
-                        f"""
-                        <div class="resort-suite-card">
-                            <span class="resort-suite-number">{h.nome}</span>
-                            <div class="resort-suite-meta">
-                                <strong>CNPJ:</strong> {h.cnpj}<br>
-                                📞 {h.telefone or '—'} · ✉️ {h.email or '—'}<br>
-                                📍 {h.endereco or '—'}
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-        else:
-            if termo_busca:
-                st.info(f"Nenhum fornecedor encontrado para '{termo_busca}'.")
-            else:
-                st.info("Nenhum fornecedor cadastrado.")
 
     with aba_atualizar:
         st.subheader("Atualizar fornecedor")

@@ -2,7 +2,7 @@ import streamlit as st
 
 from app.database import SessionLocal
 from app.services.produto_service.ProdutoService import ProdutoService
-from app.theme import aplicar_tema, cabecalho
+from app.theme import aplicar_tema, cabecalho, card_item, badge_status
 from app.utils.search_utils import atende_termo_busca, normalizar_texto
 
 if not st.user.is_logged_in:
@@ -10,15 +10,76 @@ if not st.user.is_logged_in:
     st.stop()
 
 aplicar_tema()
-cabecalho("Produtos", "Cadastre e gerencie os dados dos produtos", "📦")
+cabecalho("Produtos", "Cadastre e controle o catálogo de produtos do resort", "📦")
 
 with SessionLocal() as db:
     service = ProdutoService(db)
     produtos = service.listar_todos()
 
-    aba_cadastrar, aba_listar, aba_atualizar, aba_remover = st.tabs(
-        ["Cadastrar", "Listar", "Atualizar", "Remover"]
+    aba_listar, aba_cadastrar, aba_atualizar, aba_remover = st.tabs(
+        ["📋 Listar", "➕ Cadastrar", "✏️ Editar", "🗑️ Remover"]
     )
+
+    with aba_listar:
+        st.subheader("Produtos Cadastrados")
+
+        if not produtos:
+            st.info("Nenhum produto cadastrado.")
+        else:
+            col_busca, col_cat = st.columns([2, 1])
+            with col_busca:
+                pesquisa = st.text_input(
+                    "🔍 Pesquisar produto",
+                    placeholder="Nome, categoria ou código...",
+                    key="busca_produtos"
+                )
+            with col_cat:
+                categorias = ["Todas"] + sorted(list(set(p.categoria for p in produtos)))
+                categoria_filtro = st.selectbox("Filtrar Categoria", categorias)
+
+            produtos_filtrados = [
+                p for p in produtos
+                if atende_termo_busca(pesquisa, p.nome, p.categoria, p.id_produto)
+                and (categoria_filtro == "Todas" or p.categoria == categoria_filtro)
+            ]
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Produtos", len(produtos_filtrados))
+            c2.metric("Sem Estoque", sum(1 for p in produtos_filtrados if p.quantidade == 0))
+            c3.metric("Estoque Baixo", sum(1 for p in produtos_filtrados if 0 < p.quantidade <= p.estoque_minimo))
+            valor_total = sum(p.quantidade * p.valor_unitario for p in produtos_filtrados)
+            c4.metric("Valor em Estoque", f"R$ {valor_total:,.2f}")
+
+            st.divider()
+
+            if not produtos_filtrados:
+                st.info("Nenhum produto encontrado com os filtros aplicados.")
+            else:
+                cols = st.columns(2)
+                for i, produto in enumerate(produtos_filtrados):
+                    if produto.quantidade == 0:
+                        status_str = "Sem estoque"
+                    elif produto.quantidade <= produto.estoque_minimo:
+                        status_str = "Estoque baixo"
+                    else:
+                        status_str = "Normal"
+
+                    detalhes = f"""
+                    <strong>Categoria:</strong> {produto.categoria}<br>
+                    <strong>Preço Unitário:</strong> R$ {produto.valor_unitario:,.2f}<br>
+                    <strong>Estoque Atual:</strong> {produto.quantidade} un. (Mínimo: {produto.estoque_minimo})<br>
+                    <strong>Valor Total:</strong> R$ {(produto.quantidade * produto.valor_unitario):,.2f}
+                    """
+                    with cols[i % 2]:
+                        st.markdown(
+                            card_item(
+                                f"#{produto.id_produto} - {produto.nome}",
+                                f"Categoria: {produto.categoria}",
+                                detalhes,
+                                status=status_str
+                            ),
+                            unsafe_allow_html=True,
+                        )
 
     with aba_cadastrar:
         st.subheader("Cadastrar novo produto")
@@ -36,66 +97,6 @@ with SessionLocal() as db:
                     st.rerun()
                 except ValueError as e:
                     st.error(str(e))
-
-    with aba_listar:
-        st.subheader("Produtos Cadastrados")
-
-        if not produtos:
-            st.info("Nenhum produto cadastrado.")
-        else:
-            col_busca, col_cat = st.columns([2, 1])
-            with col_busca:
-                pesquisa = st.text_input(
-                    "🔍 Pesquisar produto",
-                    placeholder="Nome, categoria ou código..."
-                )
-            with col_cat:
-                categorias = ["Todas"] + sorted(list(set(p.categoria for p in produtos)))
-                categoria_filtro = st.selectbox("Filtrar Categoria", categorias)
-
-            produtos_filtrados = [
-                p for p in produtos
-                if atende_termo_busca(pesquisa, p.nome, p.categoria, p.id_produto)
-                and (categoria_filtro == "Todas" or p.categoria == categoria_filtro)
-            ]
-
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Produtos", len(produtos_filtrados))
-            col2.metric("Sem Estoque", sum(1 for p in produtos_filtrados if p.quantidade == 0))
-            col3.metric("Estoque Baixo", sum(1 for p in produtos_filtrados if 0 < p.quantidade <= p.estoque_minimo))
-            valor_total = sum(p.quantidade * p.valor_unitario for p in produtos_filtrados)
-            col4.metric("Valor em Estoque", f"R$ {valor_total:.2f}")
-
-            st.divider()
-
-            if not produtos_filtrados:
-                st.info("Nenhum produto encontrado com os filtros aplicados.")
-            else:
-                for produto in produtos_filtrados:
-                    if produto.quantidade == 0:
-                        status = "🔴 Sem estoque"
-                    elif produto.quantidade <= produto.estoque_minimo:
-                        status = "🟡 Estoque baixo"
-                    else:
-                        status = "🟢 Normal"
-
-                    with st.container(border=True):
-                        col1, col2 = st.columns([3, 1])
-                        with col1:
-                            st.markdown(f"### 📦 #{produto.id_produto} - {produto.nome}")
-                            st.write(f"**Categoria:** {produto.categoria}")
-                            st.write(f"**Preço Unitário:** R$ {produto.valor_unitario:.2f}")
-                        with col2:
-                            st.metric("Estoque", f"{produto.quantidade} un.")
-                            st.write(status)
-
-                        st.progress(
-                            min(produto.quantidade / max(produto.estoque_minimo * 2, 1), 1.0)
-                        )
-
-                        col1, col2 = st.columns(2)
-                        col1.write(f"**Estoque mínimo:** {produto.estoque_minimo}")
-                        col2.write(f"**Valor total em estoque:** R$ {(produto.quantidade * produto.valor_unitario):.2f}")
 
     with aba_atualizar:
         st.subheader("Atualizar produto")

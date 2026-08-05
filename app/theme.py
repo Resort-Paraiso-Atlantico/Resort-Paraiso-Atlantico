@@ -1,196 +1,289 @@
 """
-Tema visual compartilhado do Resort Paraíso Atlântico.
-Usado pelas páginas internas (Suítes, Reservas, etc.) para manter
-a mesma identidade visual da tela de login.
+Tema visual padronizado e moderno do Resort Paraíso Atlântico ("Riviera Luxury").
+Proporciona uma experiência visual elegante, refinada e consistente em todas as páginas.
 """
 
 import streamlit as st
 
-# Paleta oficial do resort
-OCEAN_DEEP = "#0B3D3A"
-OCEAN_MID = "#12617A"
-SAND = "#FBF6EC"
-GOLD = "#F2C879"
-CORAL = "#E8734A"
+# Paleta Riviera Luxury
+PRIMARY_DARK = "#0F172A"   # Deep Navy / Slate
+PRIMARY_TEAL = "#0D9488"   # Royal Teal Accent
+ACCENT_GOLD = "#D97706"    # Warm Luxury Gold
+ACCENT_CORAL = "#E11D48"   # Crimson / Coral CTA
+BG_LIGHT = "#F8FAFC"       # Soft Warm Background
+TEXT_DARK = "#1E293B"      # Dark slate text for maximum legibility
+TEXT_MUTED = "#64748B"     # Muted text
+CARD_BG = "#FFFFFF"        # Pure white cards
 
-# Cores de badge por status (fundo claro, texto escuro da mesma família)
+# Badges harmonizados por status
 _BADGES = {
-    "Disponível": ("#E1F5EE", "#085041"),
-    "Confirmada": ("#E1F5EE", "#085041"),
-    "Hospedado": ("#E5F0FA", "#0B3D6B"),
-    "Finalizada": ("#EFEEE9", "#3A3A36"),
-    "Ocupada": ("#FAECE7", "#4A1B0C"),
-    "Pendente": ("#FAEEDA", "#623C06"),
-    "Manutenção": ("#FAEEDA", "#623C06"),
-    "Cancelada": ("#FCEBEB", "#501313"),
+    "Disponível": ("#ECFDF5", "#047857"),
+    "Confirmada": ("#ECFDF5", "#047857"),
+    "Concluído": ("#ECFDF5", "#047857"),
+    "Normal": ("#ECFDF5", "#047857"),
+    "Ativo": ("#ECFDF5", "#047857"),
+    
+    "Hospedado": ("#EFF6FF", "#1D4ED8"),
+    "Em andamento": ("#EFF6FF", "#1D4ED8"),
+    "Pago": ("#EFF6FF", "#1D4ED8"),
+    
+    "Finalizada": ("#F1F5F9", "#475569"),
+    "Encerrado": ("#F1F5F9", "#475569"),
+    "Entregue": ("#F1F5F9", "#475569"),
+    
+    "Ocupada": ("#FEF2F2", "#B91C1C"),
+    "Sem estoque": ("#FEF2F2", "#B91C1C"),
+    "Crítico": ("#FEF2F2", "#B91C1C"),
+    "Cancelada": ("#FEF2F2", "#B91C1C"),
+    
+    "Pendente": ("#FFFBEB", "#B45309"),
+    "Manutenção": ("#FFFBEB", "#B45309"),
+    "Estoque baixo": ("#FFFBEB", "#B45309"),
+    "🟡 Estoque baixo": ("#FFFBEB", "#B45309"),
+    "🔴 Sem estoque": ("#FEF2F2", "#B91C1C"),
+    "🟢 Normal": ("#ECFDF5", "#047857"),
 }
 
 
 def aplicar_tema():
-    """Injeta o CSS compartilhado. Chamar uma vez no topo de cada página."""
+    """Injeta o CSS compartilhado e padronizado. Deve ser chamado no topo de cada página."""
     st.markdown(
         f"""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
+        /* Container principal */
         [data-testid="stAppViewContainer"] {{
-            background: {SAND};
+            background-color: {BG_LIGHT};
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
         }}
         [data-testid="stHeader"] {{ background: transparent; }}
 
         html, body, [class*="css"] {{
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: {TEXT_DARK};
         }}
 
-        /* Cabeçalho de página */
+        /* Cabeçalho luxuoso de página */
         .resort-page-header {{
             display: flex;
             align-items: center;
-            gap: 0.9rem;
-            background: linear-gradient(135deg, {OCEAN_DEEP} 0%, {OCEAN_MID} 100%);
-            border-radius: 16px;
-            padding: 1.3rem 1.6rem;
-            margin-bottom: 1.6rem;
-            box-shadow: 0 10px 30px rgba(11, 61, 58, 0.18);
+            gap: 1.2rem;
+            background: linear-gradient(135deg, {PRIMARY_DARK} 0%, #1E293B 60%, {PRIMARY_TEAL} 100%);
+            border-radius: 18px;
+            padding: 1.4rem 1.8rem;
+            margin-bottom: 1.8rem;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }}
-        .resort-page-header-icon {{ font-size: 2rem; line-height: 1; }}
+        .resort-page-header-icon {{
+            font-size: 2.2rem;
+            line-height: 1;
+            background: rgba(255, 255, 255, 0.12);
+            padding: 0.7rem;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+        }}
         .resort-page-header-title {{
             font-family: 'Playfair Display', serif;
             font-weight: 700;
-            font-size: 1.7rem;
-            color: {SAND};
+            font-size: 1.75rem;
+            color: #FFFFFF !important;
             margin: 0;
+            letter-spacing: -0.02em;
         }}
         .resort-page-header-subtitle {{
-            font-weight: 300;
+            font-weight: 400;
             font-size: 0.92rem;
-            color: {GOLD};
-            margin: 0.15rem 0 0 0;
+            color: {ACCENT_GOLD} !important;
+            margin: 0.2rem 0 0 0;
         }}
 
-        /* ── Força cores legíveis independente do tema (claro/escuro) do navegador ── */
-        [data-testid="stAppViewContainer"] * {{
-            color: {OCEAN_DEEP};
+        /* ── Sidebar de navegação ── */
+        [data-testid="stSidebar"] {{
+            background-color: {PRIMARY_DARK} !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
         }}
-        [data-testid="stMarkdownContainer"] h1,
-        [data-testid="stMarkdownContainer"] h2,
-        [data-testid="stMarkdownContainer"] h3 {{
-            color: {OCEAN_DEEP} !important;
+        [data-testid="stSidebar"] * {{
+            color: #E2E8F0 !important;
         }}
-        [data-testid="stWidgetLabel"] p {{
-            color: {OCEAN_DEEP} !important;
-            font-weight: 500;
+        [data-testid="stSidebarNav"] a {{
+            border-radius: 12px !important;
+            margin: 2px 8px !important;
+            transition: all 0.2s ease;
+        }}
+        [data-testid="stSidebarNav"] a:hover {{
+            background: rgba(255, 255, 255, 0.08) !important;
+        }}
+        [data-testid="stSidebarNav"] a[aria-current="page"] {{
+            background: linear-gradient(135deg, {PRIMARY_TEAL} 0%, #0F766E 100%) !important;
+            box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+        }}
+        [data-testid="stSidebarNav"] a[aria-current="page"] span {{
+            color: #FFFFFF !important;
+            font-weight: 600 !important;
         }}
 
-        /* Campos de formulário: fundo branco, texto escuro, sempre */
+        /* Abas padronizadas */
+        button[data-baseweb="tab"] {{
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 600 !important;
+            font-size: 0.95rem !important;
+            color: {TEXT_MUTED} !important;
+            padding: 0.8rem 1.4rem !important;
+            border-radius: 8px 8px 0 0 !important;
+        }}
+        button[data-baseweb="tab"][aria-selected="true"] {{
+            color: {PRIMARY_TEAL} !important;
+        }}
+        [data-baseweb="tab-highlight"] {{
+            background-color: {PRIMARY_TEAL} !important;
+            height: 3px !important;
+        }}
+
+        /* Inputs e formulários */
         [data-testid="stTextInput"] input,
         [data-testid="stNumberInput"] input,
         [data-testid="stDateInput"] input,
         [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
         [data-testid="stTextArea"] textarea {{
             background-color: #FFFFFF !important;
-            color: {OCEAN_DEEP} !important;
-            border: 1px solid rgba(11, 61, 58, 0.25) !important;
+            color: {TEXT_DARK} !important;
+            border: 1px solid #CBD5E1 !important;
+            border-radius: 10px !important;
+            font-size: 0.92rem !important;
         }}
-        [data-testid="stNumberInput"] button {{
-            background-color: #FFFFFF !important;
-            color: {OCEAN_DEEP} !important;
+        [data-testid="stTextInput"] input:focus,
+        [data-testid="stSelectbox"] div[data-baseweb="select"]:focus-within {{
+            border-color: {PRIMARY_TEAL} !important;
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15) !important;
         }}
 
-        /* Conteúdo do dropdown do selectbox (abre em popover separado) */
+        /* Labels */
+        [data-testid="stWidgetLabel"] p {{
+            color: {TEXT_DARK} !important;
+            font-weight: 600 !important;
+            font-size: 0.88rem !important;
+        }}
+
+        /* Popover e Dropdown */
         div[data-baseweb="popover"] li {{
             background-color: #FFFFFF !important;
-            color: {OCEAN_DEEP} !important;
+            color: {TEXT_DARK} !important;
         }}
 
-        /* Cabeçalho superior (nome do usuário / botão sair), fora do container principal */
-        [data-testid="stHeaderActionElements"], .resort-page-header * {{
-            color: inherit;
-        }}
-        .resort-page-header-title, .resort-page-header-title * {{ color: {SAND} !important; }}
-        .resort-page-header-subtitle, .resort-page-header-subtitle * {{ color: {GOLD} !important; }}
-
-        /* ── Sidebar de navegação ── */
-        [data-testid="stSidebar"] {{
-            background: {OCEAN_DEEP} !important;
-        }}
-        [data-testid="stSidebar"] * {{
-            color: {SAND} !important;
-        }}
-        [data-testid="stSidebarNav"] a {{
-            border-radius: 10px !important;
-        }}
-        [data-testid="stSidebarNav"] a[aria-current="page"] {{
-            background: rgba(242, 200, 121, 0.18) !important;
-        }}
-        [data-testid="stSidebarNav"] a[aria-current="page"] span {{
-            color: {GOLD} !important;
-            font-weight: 600 !important;
-        }}
-
-        /* ── Botões secundários (ex: "Sair") fora do container principal ── */
-        div[data-testid="stButton"] button {{
-            background: {OCEAN_DEEP} !important;
-            color: {SAND} !important;
-            border: 1px solid {OCEAN_MID} !important;
-            border-radius: 999px !important;
-        }}
-        div[data-testid="stButton"] button p {{
-            color: {SAND} !important;
-        }}
-
-        /* Nome do usuário no topo */
-        [data-testid="stMarkdownContainer"] p {{
-            color: {OCEAN_DEEP};
-        }}
-
-        /* Abas */
-        button[data-baseweb="tab"] {{
-            font-family: 'Poppins', sans-serif;
-            font-weight: 500;
-        }}
-        [data-baseweb="tab-highlight"] {{
-            background-color: {CORAL} !important;
-        }}
-
-        /* Botões primários (submit) */
+        /* Botões Primários */
         button[kind="primary"], div[data-testid="stFormSubmitButton"] button {{
-            background: linear-gradient(135deg, {CORAL} 0%, #E0552F 100%) !important;
-            color: {SAND} !important;
+            background: linear-gradient(135deg, {ACCENT_CORAL} 0%, #BE123C 100%) !important;
+            color: #FFFFFF !important;
             border: none !important;
-            border-radius: 999px !important;
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25) !important;
+            transition: all 0.2s ease !important;
+        }}
+        button[kind="primary"]:hover, div[data-testid="stFormSubmitButton"] button:hover {{
+            box-shadow: 0 6px 16px rgba(225, 29, 72, 0.35) !important;
+            transform: translateY(-1px);
         }}
         button[kind="primary"] p, div[data-testid="stFormSubmitButton"] button p {{
-            color: {SAND} !important;
+            color: #FFFFFF !important;
         }}
 
-        /* Cartão de suíte */
-        .resort-suite-card {{
-            background: white;
-            border: 1px solid rgba(11, 61, 58, 0.08);
+        /* Botões Secundários */
+        div[data-testid="stButton"] button {{
+            border-radius: 10px !important;
+            border: 1px solid #CBD5E1 !important;
+            background-color: #FFFFFF !important;
+            color: {TEXT_DARK} !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+        }}
+        div[data-testid="stButton"] button:hover {{
+            border-color: {PRIMARY_TEAL} !important;
+            color: {PRIMARY_TEAL} !important;
+            background-color: #F0FDFA !important;
+        }}
+
+        /* Métricas (st.metric) */
+        [data-testid="stMetric"] {{
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
             border-radius: 14px;
-            padding: 1rem 1.1rem;
-            margin-bottom: 0.8rem;
-            box-shadow: 0 4px 14px rgba(11, 61, 58, 0.06);
+            padding: 0.8rem 1rem !important;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+            min-width: 0 !important;
         }}
-        .resort-suite-card *:not(.resort-badge) {{ color: {OCEAN_DEEP} !important; }}
-        .resort-suite-number {{
-            font-family: 'Playfair Display', serif;
+        [data-testid="stMetricLabel"] p {{
+            color: {TEXT_MUTED} !important;
+            font-weight: 600 !important;
+            font-size: 0.8rem !important;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }}
+        [data-testid="stMetricValue"],
+        [data-testid="stMetricValue"] * {{
+            color: {PRIMARY_DARK} !important;
+            font-weight: 700 !important;
+            font-size: clamp(1.05rem, 1.6vw, 1.4rem) !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }}
+
+        /* Card Padronizado */
+        .resort-card {{
+            background: {CARD_BG};
+            border: 1px solid #E2E8F0;
+            border-radius: 16px;
+            padding: 1.2rem 1.4rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }}
+        .resort-card:hover {{
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+            border-color: #CBD5E1;
+        }}
+        .resort-card-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+        }}
+        .resort-card-title {{
+            font-family: 'Plus Jakarta Sans', sans-serif;
             font-weight: 700;
-            font-size: 1.15rem;
-            color: {OCEAN_DEEP};
+            font-size: 1.1rem;
+            color: {PRIMARY_DARK};
+            margin: 0;
         }}
-        .resort-suite-meta {{
+        .resort-card-subtitle {{
             font-size: 0.85rem;
-            color: #5F5E5A;
-            margin-top: 0.15rem;
+            color: {PRIMARY_TEAL};
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }}
+        .resort-card-body {{
+            font-size: 0.88rem;
+            color: {TEXT_MUTED};
+            line-height: 1.5;
         }}
         .resort-badge {{
             display: inline-block;
-            padding: 0.2rem 0.75rem;
+            padding: 0.25rem 0.8rem;
             border-radius: 999px;
             font-size: 0.78rem;
-            font-weight: 500;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }}
+
+        /* Subcabeçalhos */
+        .stMarkdown h3 {{
+            color: {PRIMARY_DARK} !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.01em;
         }}
         </style>
         """,
@@ -199,22 +292,21 @@ def aplicar_tema():
 
 
 def cabecalho(titulo: str, subtitulo: str = "", icone: str = "🏨"):
-    """Renderiza o cabeçalho padrão de página (banner escuro com título serifado)."""
-    st.markdown(
-        f"""
-        <div class="resort-page-header">
-            <div class="resort-page-header-icon">{icone}</div>
-            <div>
-                <p class="resort-page-header-title">{titulo}</p>
-                {f'<p class="resort-page-header-subtitle">{subtitulo}</p>' if subtitulo else ''}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    """Renderiza o cabeçalho padrão de página."""
+    sub_html = f'<p class="resort-page-header-subtitle">{subtitulo}</p>' if subtitulo else ""
+    html = f'<div class="resort-page-header"><div class="resort-page-header-icon">{icone}</div><div><p class="resort-page-header-title">{titulo}</p>{sub_html}</div></div>'
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def badge_status(status: str) -> str:
     """Retorna o HTML de um badge colorido para o status informado."""
-    bg, fg = _BADGES.get(status, ("#F1EFE8", "#2C2C2A"))
+    bg, fg = _BADGES.get(status, ("#F1F5F9", "#475569"))
     return f'<span class="resort-badge" style="background:{bg};color:{fg};">{status}</span>'
+
+
+def card_item(titulo: str, subtitulo: str = "", detalhes_html: str = "", status: str = None) -> str:
+    """Retorna HTML de um card visual padronizado para listagens."""
+    badge = badge_status(status) if status else ""
+    sub = f'<div class="resort-card-subtitle">{subtitulo}</div>' if subtitulo else ""
+    detalhes_clean = "".join(line.strip() for line in detalhes_html.splitlines()) if detalhes_html else ""
+    return f'<div class="resort-card"><div class="resort-card-header"><span class="resort-card-title">{titulo}</span>{badge}</div>{sub}<div class="resort-card-body">{detalhes_clean}</div></div>'
