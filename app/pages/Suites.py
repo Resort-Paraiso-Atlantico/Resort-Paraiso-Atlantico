@@ -4,7 +4,7 @@ from app.database import SessionLocal
 from app.services.SuiteService import SuiteService
 from app.services.ReservaSuiteService import ReservaSuiteService
 from app.repositories.ReservaSuiteRepository import ReservaSuiteRepository
-from app.theme import aplicar_tema, cabecalho, badge_status
+from app.theme import aplicar_tema, cabecalho, badge_status, card_item
 import pandas as pd
 
 if not st.user.is_logged_in:
@@ -24,7 +24,7 @@ def _status_ocupacao(suite, ocupadas_agora: set) -> str:
     return "Ocupada" if suite.id_suite in ocupadas_agora else "Disponível"
 
 
-tab_listar, tab_cadastrar, tab_historico = st.tabs(["Listar & Limpeza", "Cadastrar Suíte", "Histórico por Suíte"])
+tab_listar, tab_cadastrar, tab_historico = st.tabs(["📋 Listar & Status", "➕ Cadastrar Suíte", "📜 Histórico por Suíte"])
 
 # ── Listar & Limpeza ────────────────────────────────────────────────────────────
 with tab_listar:
@@ -72,22 +72,17 @@ with tab_listar:
             limpeza_txt = s.ultima_limpeza.strftime("%d/%m/%Y %H:%M") if s.ultima_limpeza else "nunca registrada"
             aviso_limpeza = " · 🧹 <b>precisa de limpeza</b>" if precisa_limpeza else ""
             status_atual = status_exibicao[s.id_suite]
+            detalhes = f"""
+            <strong>Tipo & Cap:</strong> {s.tipo} · {s.capacidade} pax · R$ {s.valor_diaria:,.2f}/diária<br>
+            <strong>Última limpeza:</strong> {limpeza_txt}{aviso_limpeza}
+            """
             with cols[i % 2]:
                 st.markdown(
-                    f"""
-                    <div class="resort-suite-card">
-                        <span class="resort-suite-number">Suíte nº {s.numero}</span>
-                        &nbsp;{badge_status(status_atual)}
-                        <div class="resort-suite-meta">
-                            {s.tipo} · {s.capacidade} pax · R$ {s.valor_diaria:,.2f}/diária<br>
-                            Última limpeza: {limpeza_txt}{aviso_limpeza}
-                        </div>
-                    </div>
-                    """,
+                    card_item(f"Suíte nº {s.numero}", f"Categoria: {s.tipo}", detalhes, status=status_atual),
                     unsafe_allow_html=True,
                 )
                 if precisa_limpeza:
-                    if st.button(f"🧹 Registrar limpeza — nº {s.numero}", key=f"limpar_{s.id_suite}", use_container_width=True):
+                    if st.button(f"🧹 Registrar limpeza — nº {s.numero}", key=f"limpar_{s.id_suite}", width="stretch"):
                         try:
                             with SessionLocal() as db:
                                 SuiteService(db).registrar_limpeza(s.id_suite)
@@ -98,7 +93,7 @@ with tab_listar:
                 if s.status == "Manutenção":
                     with st.expander(f"⚙️ Ações administrativas — nº {s.numero}"):
                         st.caption("Tira a suíte do modo manutenção. A disponibilidade pra reservas volta a ser calculada normalmente.")
-                        if st.button(f"🔓 Tirar de Manutenção — nº {s.numero}", key=f"forcar_disp_{s.id_suite}", use_container_width=True):
+                        if st.button(f"🔓 Tirar de Manutenção — nº {s.numero}", key=f"forcar_disp_{s.id_suite}", width="stretch"):
                             try:
                                 with SessionLocal() as db:
                                     SuiteService(db).deixar_disponivel(s.id_suite)
@@ -116,7 +111,7 @@ with tab_cadastrar:
         capacidade = st.number_input("Capacidade", min_value=0, step=1)
         valor_diaria = st.number_input("Valor da Diária (R$)", min_value=0.0, format="%.2f")
         status = st.selectbox("Status", ["Disponível", "Manutenção"])
-        submitted = st.form_submit_button("Cadastrar", use_container_width=True)
+        submitted = st.form_submit_button("Cadastrar", width="stretch")
 
     if submitted:
         try:
@@ -259,7 +254,7 @@ with tab_historico:
 
                 st.dataframe(
                     df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True
                 )
 

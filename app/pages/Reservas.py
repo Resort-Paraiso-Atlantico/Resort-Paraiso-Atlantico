@@ -6,7 +6,7 @@ from app.services.ReservaService import ReservaService
 from app.services.ReservaSuiteService import ReservaSuiteService
 from app.services.SuiteService import SuiteService
 from app.services.HospedeService import HospedeService
-from app.theme import aplicar_tema, cabecalho, badge_status
+from app.theme import aplicar_tema, cabecalho, badge_status, card_item
 from app.utils.search_utils import atende_termo_busca, sanitizar_documento
 import pandas as pd
 
@@ -41,8 +41,8 @@ def _reset_wizard():
 if "wiz_reserva" not in st.session_state:
     _reset_wizard()
 
-tab_criar, tab_listar, tab_hospedes, tab_suites = st.tabs(
-    ["🆕 Nova Reserva", "📋 Gerenciar Reservas", "👤 Hóspedes", "🔗 Ajustar Suítes"]
+tab_listar, tab_criar, tab_hospedes, tab_suites = st.tabs(
+    ["📋 Gerenciar Reservas", "➕ Nova Reserva", "👤 Hóspedes", "🔗 Ajustar Suítes"]
 )
 
 # ── Nova Reserva (fluxo guiado) ─────────────────────────────────────────────────
@@ -64,7 +64,7 @@ with tab_criar:
 
         col_titulo, col_reiniciar = st.columns([5, 1])
         with col_reiniciar:
-            if st.button("🔄 Recomeçar", use_container_width=True):
+            if st.button("🔄 Recomeçar", width="stretch"):
                 _reset_wizard()
                 st.rerun()
         st.divider()
@@ -96,7 +96,7 @@ with tab_criar:
             "CPF do hóspede", placeholder="Somente números ou 000.000.000-00", max_chars=14
         )
 
-        if st.button("🔍 Buscar por CPF", type="secondary", use_container_width=True):
+        if st.button("🔍 Buscar por CPF", type="secondary", width="stretch"):
             cpf_limpo = _somente_digitos(cpf_input)
             if len(cpf_limpo) != 11:
                 st.error("CPF inválido — informe os 11 dígitos.")
@@ -113,7 +113,7 @@ with tab_criar:
 
         if wiz.get("cpf") and wiz.get("hospede_encontrado"):
             st.success(f"✅ Hóspede selecionado: **{wiz['hospede_nome']}** ({_formatar_cpf(wiz['cpf'])})")
-            if st.button("Próximo ➜", type="primary", use_container_width=True):
+            if st.button("Próximo ➜", type="primary", width="stretch"):
                 wiz["step"] = 2
                 st.rerun()
 
@@ -124,7 +124,7 @@ with tab_criar:
                 telefone = st.text_input("Telefone")
                 email = st.text_input("E-mail")
                 endereco = st.text_input("Endereço")
-                cadastrar = st.form_submit_button("Cadastrar e continuar", type="primary", use_container_width=True)
+                cadastrar = st.form_submit_button("Cadastrar e continuar", type="primary", width="stretch")
 
             if cadastrar:
                 if not nome.strip() or not telefone.strip() or not email.strip():
@@ -160,10 +160,10 @@ with tab_criar:
             st.caption(f"🛎️ {(checkout - checkin).days} diária(s)")
 
         col_voltar, col_prox = st.columns(2)
-        if col_voltar.button("⬅ Voltar", use_container_width=True):
+        if col_voltar.button("⬅ Voltar", width="stretch"):
             wiz["step"] = 1
             st.rerun()
-        if col_prox.button("Próximo ➜", type="primary", use_container_width=True):
+        if col_prox.button("Próximo ➜", type="primary", width="stretch"):
             if checkin >= checkout:
                 st.error("A data de check-in deve ser anterior ao check-out.")
             else:
@@ -277,11 +277,11 @@ with tab_criar:
         st.divider()
 
         col_voltar, col_confirmar = st.columns(2)
-        if col_voltar.button("⬅ Voltar", use_container_width=True):
+        if col_voltar.button("⬅ Voltar", width="stretch"):
             wiz["step"] = 3
             st.rerun()
 
-        if col_confirmar.button("✅ Confirmar Reserva", type="primary", use_container_width=True):
+        if col_confirmar.button("✅ Confirmar Reserva", type="primary", width="stretch"):
             try:
                 with SessionLocal() as db:
                     reserva = ReservaService(db).criar_reserva(
@@ -334,7 +334,7 @@ with tab_criar:
         if wiz.get("resultado_falhas"):
             st.warning("Algumas suítes não puderam ser vinculadas: " + "; ".join(wiz["resultado_falhas"]))
             st.caption("Use a aba **Ajustar Suítes** para tentar vincular novamente.")
-        if st.button("➕ Cadastrar outra reserva", type="primary", use_container_width=True):
+        if st.button("➕ Cadastrar outra reserva", type="primary", width="stretch"):
             _reset_wizard()
             st.rerun()
 
@@ -390,7 +390,7 @@ with tab_listar:
             col_a, col_b, col_c = st.columns(3)
 
             if r.status == "Pendente":
-                if col_a.button("✅ Confirmar pagamento", key=f"confirmar_{r.id_reserva}", use_container_width=True):
+                if col_a.button("✅ Confirmar pagamento", key=f"confirmar_{r.id_reserva}", width="stretch"):
                     try:
                         with SessionLocal() as db:
                             ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Confirmada")
@@ -413,7 +413,7 @@ with tab_listar:
                         st.error(str(e))
 
             elif r.status == "Confirmada":
-                if col_a.button("↩️ Reverter p/ Pendente", key=f"reverter_{r.id_reserva}", use_container_width=True):
+                if col_a.button("↩️ Reverter p/ Pendente", key=f"reverter_{r.id_reserva}", width="stretch"):
                     try:
                         with SessionLocal() as db:
                             ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Pendente")
@@ -423,7 +423,7 @@ with tab_listar:
                         st.error(str(e))
 
             if r.status in ("Pendente", "Confirmada"):
-                if col_b.button("🚫 Cancelar reserva", key=f"cancelar_{r.id_reserva}", use_container_width=True):
+                if col_b.button("🚫 Cancelar reserva", key=f"cancelar_{r.id_reserva}", width="stretch"):
                     try:
                         with SessionLocal() as db:
                             ReservaService(db).cancelar_reserva(r.id_reserva)
@@ -716,7 +716,7 @@ with tab_hospedes:
                     "Nova data de entrada", value=date.today(), key="nova_data_entrada"
                 )
 
-                if st.button("Corrigir", use_container_width=True, key="btn_corrigir"):
+                if st.button("Corrigir", width="stretch", key="btn_corrigir"):
                     try:
                         with SessionLocal() as db:
                             ReservaSuiteService(db).corrigir_data_entrada(int(id_vinculo_corrigir), nova_data_entrada)

@@ -4,7 +4,7 @@ from app.database import SessionLocal
 from app.services.ReservaService import ReservaService
 from app.services.ReservaSuiteService import ReservaSuiteService
 from app.services.HospedeService import HospedeService
-from app.theme import aplicar_tema, cabecalho, badge_status
+from app.theme import aplicar_tema, cabecalho, badge_status, card_item
 
 if not st.user.is_logged_in:
     st.error("Você precisa estar logado para acessar esta página.")
@@ -37,7 +37,7 @@ c3.metric("Finalizadas", sum(1 for r in todas_reservas if r.status == "Finalizad
 
 st.divider()
 
-tab_checkin, tab_checkout, tab_consulta = st.tabs(["Fazer Check-in", "Fazer Check-out", "Consultar por CPF"])
+tab_checkin, tab_checkout, tab_consulta = st.tabs(["🔑 Fazer Check-in", "🚪 Fazer Check-out", "🔍 Consultar por CPF"])
 
 # ── Fazer Check-in ──────────────────────────────────────────────────────────────
 with tab_checkin:
@@ -53,20 +53,16 @@ with tab_checkin:
         st.info("Nenhuma reserva confirmada aguardando check-in no momento.")
     else:
         for r in reservas:
+            detalhes = f"""
+            <strong>Hóspede:</strong> {nomes[r.id_reserva]}<br>
+            <strong>Check-in previsto:</strong> {r.checkin_previsto}<br>
+            <strong>Suítes:</strong> {info_extra[r.id_reserva]}
+            """
             st.markdown(
-                f"""
-                <div class="resort-suite-card">
-                    <span class="resort-suite-number">Reserva #{r.id_reserva}</span>
-                    &nbsp;{badge_status(r.status)}
-                    <div class="resort-suite-meta">
-                        Hóspede: {nomes[r.id_reserva]} · Check-in previsto: {r.checkin_previsto}
-                        · {info_extra[r.id_reserva]}
-                    </div>
-                </div>
-                """,
+                card_item(f"Reserva #{r.id_reserva}", "Aguardando Entrada", detalhes, status=r.status),
                 unsafe_allow_html=True,
             )
-            if st.button(f"Confirmar check-in da reserva #{r.id_reserva}", key=f"checkin_{r.id_reserva}", use_container_width=True):
+            if st.button(f"Confirmar check-in da reserva #{r.id_reserva}", key=f"checkin_{r.id_reserva}", width="stretch"):
                 try:
                     with SessionLocal() as db:
                         _, aviso = ReservaService(db).fazer_checkin(r.id_reserva, usuario=st.user.email)
@@ -94,21 +90,17 @@ with tab_checkout:
         st.info("Nenhum hóspede hospedado no momento.")
     else:
         for r in reservas:
+            detalhes = f"""
+            <strong>Hóspede:</strong> {nomes[r.id_reserva]}<br>
+            <strong>Check-out previsto:</strong> {r.checkout_previsto}<br>
+            <strong>Suítes:</strong> {info_extra[r.id_reserva]}<br>
+            <strong>Check-in feito:</strong> {r.checkin_realizado} por {r.checkin_por or '—'}
+            """
             st.markdown(
-                f"""
-                <div class="resort-suite-card">
-                    <span class="resort-suite-number">Reserva #{r.id_reserva}</span>
-                    &nbsp;{badge_status(r.status)}
-                    <div class="resort-suite-meta">
-                        Hóspede: {nomes[r.id_reserva]} · Check-out previsto: {r.checkout_previsto}
-                        · {info_extra[r.id_reserva]}
-                        <br>Check-in feito em {r.checkin_realizado} por {r.checkin_por or '—'}
-                    </div>
-                </div>
-                """,
+                card_item(f"Reserva #{r.id_reserva}", "Hóspede no Resort", detalhes, status=r.status),
                 unsafe_allow_html=True,
             )
-            if st.button(f"Confirmar check-out da reserva #{r.id_reserva}", key=f"checkout_{r.id_reserva}", use_container_width=True):
+            if st.button(f"Confirmar check-out da reserva #{r.id_reserva}", key=f"checkout_{r.id_reserva}", width="stretch"):
                 try:
                     with SessionLocal() as db:
                         ReservaService(db).fazer_checkout(r.id_reserva, usuario=st.user.email)
@@ -167,18 +159,14 @@ with tab_consulta:
                     checkin_txt = f"{r.checkin_realizado} (por {r.checkin_por})" if r.checkin_realizado else "ainda não realizado"
                     checkout_txt = f"{r.checkout_realizado} (por {r.checkout_por})" if r.checkout_realizado else "ainda não realizado"
 
+                    detalhes = f"""
+                    <strong>Previsto:</strong> {r.checkin_previsto} → {r.checkout_previsto}<br>
+                    <strong>Check-in real:</strong> {checkin_txt}<br>
+                    <strong>Check-out real:</strong> {checkout_txt}<br>
+                    <strong>Suíte(s):</strong> {suites_texto}
+                    """
+
                     st.markdown(
-                        f"""
-                        <div class="resort-suite-card">
-                            <span class="resort-suite-number">Reserva #{r.id_reserva}</span>
-                            &nbsp;{badge_status(r.status)}
-                            <div class="resort-suite-meta">
-                                Previsto: {r.checkin_previsto} → {r.checkout_previsto}<br>
-                                Check-in real: {checkin_txt}<br>
-                                Check-out real: {checkout_txt}<br>
-                                Suíte(s): {suites_texto}
-                            </div>
-                        </div>
-                        """,
+                        card_item(f"Reserva #{r.id_reserva}", f"Hóspede: {hospede_sel.nome}", detalhes, status=r.status),
                         unsafe_allow_html=True,
                     )

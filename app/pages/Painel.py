@@ -5,16 +5,16 @@ from app.services.ReservaService import ReservaService
 from app.services.SuiteService import SuiteService
 from app.services.EventoService import EventoService
 from app.repositories.ReservaSuiteRepository import ReservaSuiteRepository
-from app.theme import aplicar_tema, cabecalho
+from app.theme import aplicar_tema, cabecalho, badge_status, card_item
 
 if not st.user.is_logged_in:
     st.error("Você precisa estar logado para acessar esta página.")
     st.stop()
 
 aplicar_tema()
-cabecalho("Painel", "Visão geral do resort agora", "🏠")
+cabecalho("Painel", "Visão geral e indicadores do resort em tempo real", "🏠")
 
-DIAS_LIMPEZA_ALERTA = 3  # suítes disponíveis sem limpeza há mais de N dias entram no alerta
+DIAS_LIMPEZA_ALERTA = 3
 
 hoje = date.today()
 
@@ -48,7 +48,7 @@ with col_esq:
     disponiveis = len(suites) - ocupadas - manutencao
 
     st.progress(ocupadas / total)
-    st.caption(f"{ocupadas} de {len(suites)} suítes ocupadas")
+    st.caption(f"**{ocupadas}** de **{len(suites)}** suítes ocupadas no momento")
 
     sc1, sc2, sc3 = st.columns(3)
     sc1.metric("Disponíveis", disponiveis)
@@ -66,12 +66,16 @@ with col_dir:
         and (s.ultima_limpeza is None or s.ultima_limpeza < limite)
     ]
     if not pendentes:
-        st.success("Nenhuma suíte disponível precisa de limpeza no momento.")
+        st.success("✨ Nenhuma suíte disponível precisa de limpeza no momento.")
     else:
-        st.warning(f"{len(pendentes)} suíte(s) disponível(is) sem limpeza há mais de {DIAS_LIMPEZA_ALERTA} dias.")
+        st.warning(f"⚠️ **{len(pendentes)} suíte(s)** disponível(is) sem limpeza há mais de {DIAS_LIMPEZA_ALERTA} dias.")
         for s in pendentes:
             desde = s.ultima_limpeza.strftime("%d/%m %H:%M") if s.ultima_limpeza else "nunca registrada"
-            st.write(f"🛏️ Nº {s.numero} — última limpeza: {desde}")
+            detalhes = f"Última limpeza registrada: <strong>{desde}</strong>"
+            st.markdown(
+                card_item(f"Suíte nº {s.numero}", f"{s.tipo} · {s.capacidade} pax", detalhes, status="Pendente"),
+                unsafe_allow_html=True
+            )
         st.caption("Registre a limpeza na página **Suítes**.")
 
 st.divider()
@@ -81,4 +85,5 @@ st.subheader("📋 Reservas por status")
 status_labels = ["Pendente", "Confirmada", "Hospedado", "Finalizada", "Cancelada"]
 cols = st.columns(len(status_labels))
 for col, status in zip(cols, status_labels):
-    col.metric(status, sum(1 for r in reservas if r.status == status))
+    qtd = sum(1 for r in reservas if r.status == status)
+    col.metric(f"{status}", qtd)

@@ -3,14 +3,14 @@ from datetime import date
 
 from app.database import SessionLocal
 from app.services.financeiro_service.FinanceiroService import FinanceiroService
-from app.theme import aplicar_tema, cabecalho, badge_status
+from app.theme import aplicar_tema, cabecalho, badge_status, card_item
 
 if not st.user.is_logged_in:
     st.error("Você precisa estar logado para acessar esta página.")
     st.stop()
 
 aplicar_tema()
-cabecalho("Financeiro", "Visão geral de receitas e despesas do resort", "💰")
+cabecalho("Financeiro", "Visão geral de receitas, despesas e balanço do resort", "💰")
 
 with SessionLocal() as db:
     financeiro = FinanceiroService(db)
@@ -18,8 +18,6 @@ with SessionLocal() as db:
     receitas = financeiro.listar_receitas()
     despesas = financeiro.listar_despesas()
 
-    # Resolve os nomes relacionados (hóspede / fornecedor) ainda com a
-    # sessão aberta, para não disparar lazy load depois que ela fechar.
     nomes_hospede = {r.id_reserva: (r.hospede.nome if r.hospede else r.cpf_hospede) for r in receitas}
     nomes_fornecedor = {p.id_pedido: (p.fornecedor.nome if p.fornecedor else p.cnpj_fornecedor) for p in despesas}
 
@@ -27,7 +25,7 @@ with SessionLocal() as db:
 c1, c2, c3 = st.columns(3)
 c1.metric("Receitas (reservas)", f"R$ {resumo.total_receitas:,.2f}")
 c2.metric("Despesas (compras)", f"R$ {resumo.total_despesas:,.2f}")
-c3.metric("Saldo", f"R$ {resumo.saldo:,.2f}")
+c3.metric("Saldo Líquido", f"R$ {resumo.saldo:,.2f}")
 
 c4, c5 = st.columns(2)
 c4.metric("Receitas pendentes de confirmação", f"R$ {resumo.receitas_pendentes:,.2f}")
@@ -61,24 +59,37 @@ with aba_receitas:
     if not receitas:
         st.info("Nenhuma receita registrada ainda.")
     else:
-        for r in receitas:
-            col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
-            col1.write(f"**Reserva #{r.id_reserva}**")
-            col2.write(nomes_hospede.get(r.id_reserva, r.cpf_hospede))
-            col3.write(r.data_reserva.strftime("%d/%m/%Y") if r.data_reserva else "—")
-            col4.markdown(badge_status(r.status), unsafe_allow_html=True)
-            st.write(f"💵 R$ {(r.valor_total or 0):,.2f}")
-            st.divider()
+        cols = st.columns(2)
+        for i, r in enumerate(receitas):
+            cliente = nomes_hospede.get(r.id_reserva, r.cpf_hospede)
+            dt = r.data_reserva.strftime("%d/%m/%Y") if r.data_reserva else "—"
+            detalhes = f"""
+            <strong>Cliente:</strong> {cliente}<br>
+            <strong>Data:</strong> {dt}<br>
+            <strong>Valor Total:</strong> R$ {(r.valor_total or 0):,.2f}
+            """
+            with cols[i % 2]:
+                st.markdown(
+                    card_item(f"Reserva #{r.id_reserva}", "Receita de Hospedagem", detalhes, status=r.status),
+                    unsafe_allow_html=True
+                )
 
 with aba_despesas:
     if not despesas:
         st.info("Nenhuma despesa registrada ainda.")
     else:
-        for p in despesas:
-            col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
-            col1.write(f"**Pedido #{p.id_pedido}**")
-            col2.write(nomes_fornecedor.get(p.id_pedido, p.cnpj_fornecedor))
-            col3.write(p.data_pedido.strftime("%d/%m/%Y") if p.data_pedido else "—")
-            col4.markdown(badge_status(p.status.capitalize()), unsafe_allow_html=True)
-            st.write(f"💸 R$ {(p.valor_total or 0):,.2f}")
-            st.divider()
+        cols = st.columns(2)
+        for i, p in enumerate(despesas):
+            fornec = nomes_fornecedor.get(p.id_pedido, p.cnpj_fornecedor)
+            dt = p.data_pedido.strftime("%d/%m/%Y") if p.data_pedido else "—"
+            detalhes = f"""
+            <strong>Fornecedor:</strong> {fornec}<br>
+            <strong>Data do Pedido:</strong> {dt}<br>
+            <strong>Valor Total:</strong> R$ {(p.valor_total or 0):,.2f}
+            """
+            status_fmt = p.status.capitalize() if p.status else "Pendente"
+            with cols[i % 2]:
+                st.markdown(
+                    card_item(f"Pedido #{p.id_pedido}", "Despesa de Insumos", detalhes, status=status_fmt),
+                    unsafe_allow_html=True
+                )

@@ -65,7 +65,7 @@ with tab_checkin:
                 """,
                 unsafe_allow_html=True,
             )
-            if st.button(f"Confirmar check-in da reserva #{r.id_reserva}", key=f"checkin_{r.id_reserva}", use_container_width=True):
+            if st.button(f"Confirmar check-in da reserva #{r.id_reserva}", key=f"checkin_{r.id_reserva}", width="stretch"):
                 try:
                     with SessionLocal() as db:
                         _, aviso = ReservaService(db).fazer_checkin(r.id_reserva, usuario=st.user.email)
@@ -107,7 +107,7 @@ with tab_checkout:
                 """,
                 unsafe_allow_html=True,
             )
-            if st.button(f"Confirmar check-out da reserva #{r.id_reserva}", key=f"checkout_{r.id_reserva}", use_container_width=True):
+            if st.button(f"Confirmar check-out da reserva #{r.id_reserva}", key=f"checkout_{r.id_reserva}", width="stretch"):
                 try:
                     with SessionLocal() as db:
                         ReservaService(db).fazer_checkout(r.id_reserva, usuario=st.user.email)

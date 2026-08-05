@@ -7,7 +7,7 @@ from app.services.pedido_service.PedidoCompraService import PedidoCompraService
 from app.services.fornecedor_service.FornecedorService import FornecedorService
 from app.services.produto_service.ProdutoService import ProdutoService
 
-from app.theme import aplicar_tema, cabecalho, badge_status
+from app.theme import aplicar_tema, cabecalho, badge_status, card_item
 from app.utils.search_utils import atende_termo_busca
 
 if not st.user.is_logged_in:
@@ -15,7 +15,7 @@ if not st.user.is_logged_in:
     st.stop()
 
 aplicar_tema()
-cabecalho("Pedidos de Compra", "Cadastre e gerencie os pedidos de compra", "🛒")
+cabecalho("Pedidos de Compra", "Cadastre e gerencie as ordens de aquisição de insumos", "🛒")
 
 with SessionLocal() as db:
     pedido_service = PedidoCompraService(db)
@@ -25,9 +25,45 @@ with SessionLocal() as db:
     if "itens_pedido" not in st.session_state:
         st.session_state.itens_pedido = []
 
-    aba_cadastrar, aba_listar, aba_consultar, aba_cancelar = st.tabs(
-        ["Cadastrar", "Listar", "Consultar", "Cancelar"]
+    aba_listar, aba_cadastrar, aba_consultar, aba_cancelar = st.tabs(
+        ["📋 Listar", "➕ Novo Pedido", "🔍 Consultar", "🚫 Cancelar"]
     )
+
+    with aba_listar:
+        st.subheader("Todos os Pedidos de Compra")
+        pedidos = pedido_service.listar_todos()
+
+        if not pedidos:
+            st.info("Nenhum pedido de compra cadastrado.")
+        else:
+            c1, c2 = st.columns([3, 1])
+            with c1:
+                termo_busca = st.text_input("🔍 Pesquisar por ID, CNPJ ou Status", key="busca_pedidos")
+            with c2:
+                st.metric("Total de Pedidos", len(pedidos))
+
+            pedidos_filtrados = [
+                p for p in pedidos
+                if atende_termo_busca(termo_busca, p.id_pedido, p.cnpj_fornecedor, p.status)
+            ]
+
+            st.divider()
+
+            if not pedidos_filtrados:
+                st.info(f"Nenhum pedido encontrado para '{termo_busca}'.")
+            else:
+                cols = st.columns(2)
+                for i, pedido in enumerate(pedidos_filtrados):
+                    detalhes = f"""
+                    <strong>Fornecedor (CNPJ):</strong> {pedido.cnpj_fornecedor}<br>
+                    <strong>Valor Total:</strong> R$ {pedido.valor_total:,.2f}
+                    """
+                    status_fmt = pedido.status.capitalize() if pedido.status else "Pendente"
+                    with cols[i % 2]:
+                        st.markdown(
+                            card_item(f"Pedido #{pedido.id_pedido}", "Ordem de Compra", detalhes, status=status_fmt),
+                            unsafe_allow_html=True,
+                        )
 
     with aba_cadastrar:
         st.subheader("Novo Pedido de Compra")
@@ -56,7 +92,7 @@ with SessionLocal() as db:
                     produto = st.selectbox(
                         "Produto",
                         produtos,
-                        format_func=lambda p: f"#{p.id_produto} - {p.nome} (R$ {p.valor_unitario:.2f})",
+                        format_func=lambda p: f"#{p.id_produto} - {p.nome} (R$ {p.valor_unitario:,.2f})",
                         index=None,
                         placeholder="Selecione um produto..."
                     )
@@ -64,9 +100,9 @@ with SessionLocal() as db:
                     quantidade = st.number_input("Quantidade", min_value=1, value=1, step=1)
 
                 with col_btn:
-                    st.write("") # espaçamento
                     st.write("")
-                    add_clicked = st.button("➕ Adicionar Item", type="secondary")
+                    st.write("")
+                    add_clicked = st.button("➕ Adicionar Item")
 
                 if add_clicked:
                     if not produto:
@@ -104,14 +140,14 @@ with SessionLocal() as db:
                         col1, col2, col3, col4, col5 = st.columns([4, 2, 2, 2, 1])
                         col1.write(f"**{item['nome']}**")
                         col2.write(f"{item['quantidade']} un.")
-                        col3.write(f"R$ {item['valor_unitario']:.2f}")
-                        col4.write(f"R$ {total_item:.2f}")
+                        col3.write(f"R$ {item['valor_unitario']:,.2f}")
+                        col4.write(f"R$ {total_item:,.2f}")
 
                         if col5.button("🗑", key=f"remover_{indice}"):
                             st.session_state.itens_pedido.pop(indice)
                             st.rerun()
 
-                    st.markdown(f"### Valor Total do Pedido: **R$ {valor_total:.2f}**")
+                    st.markdown(f"### Valor Total do Pedido: **R$ {valor_total:,.2f}**")
 
                     if st.button("Finalizar e Cadastrar Pedido", type="primary"):
                         if not fornecedor:
@@ -138,40 +174,6 @@ with SessionLocal() as db:
                             except ValueError as e:
                                 st.error(str(e))
 
-    with aba_listar:
-        st.subheader("Todos os Pedidos de Compra")
-        pedidos = pedido_service.listar_todos()
-
-        if not pedidos:
-            st.info("Nenhum pedido de compra cadastrado.")
-        else:
-            termo_busca = st.text_input("🔍 Pesquisar por ID, CNPJ ou Status", key="busca_pedidos")
-
-            pedidos_filtrados = [
-                p for p in pedidos
-                if atende_termo_busca(termo_busca, p.id_pedido, p.cnpj_fornecedor, p.status)
-            ]
-
-            if not pedidos_filtrados:
-                st.info(f"Nenhum pedido encontrado para '{termo_busca}'.")
-            else:
-                cols = st.columns(2)
-                for i, pedido in enumerate(pedidos_filtrados):
-                    with cols[i % 2]:
-                        st.markdown(
-                            f"""
-                            <div class="resort-suite-card">
-                                <span class="resort-suite-number">Pedido #{pedido.id_pedido}</span>
-                                <div class="resort-suite-meta">
-                                    <strong>Fornecedor CNPJ:</strong> {pedido.cnpj_fornecedor}<br>
-                                    <strong>Status:</strong> {pedido.status}<br>
-                                    <strong>Valor Total:</strong> R$ {pedido.valor_total:.2f}
-                                </div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-
     with aba_consultar:
         st.subheader("Consultar Detalhes do Pedido")
         pedidos = pedido_service.listar_todos()
@@ -182,22 +184,24 @@ with SessionLocal() as db:
             pedido_sel = st.selectbox(
                 "Selecione o Pedido",
                 pedidos,
-                format_func=lambda p: f"Pedido #{p.id_pedido} - CNPJ: {p.cnpj_fornecedor} - R$ {p.valor_total:.2f} ({p.status})",
+                format_func=lambda p: f"Pedido #{p.id_pedido} - CNPJ: {p.cnpj_fornecedor} - R$ {p.valor_total:,.2f} ({p.status})",
                 index=None,
                 placeholder="Busque por código ou fornecedor..."
             )
 
             if pedido_sel:
-                st.markdown(f"### 📋 Detalhes do Pedido #{pedido_sel.id_pedido}")
-                st.write(f"**Fornecedor (CNPJ):** {pedido_sel.cnpj_fornecedor}")
-                st.write(f"**Status Atual:** {pedido_sel.status}")
-                st.write(f"**Valor Total:** R$ {pedido_sel.valor_total:.2f}")
+                status_fmt = pedido_sel.status.capitalize() if pedido_sel.status else "Pendente"
+                detalhes_html = f"""
+                <strong>Fornecedor (CNPJ):</strong> {pedido_sel.cnpj_fornecedor}<br>
+                <strong>Valor Total:</strong> R$ {pedido_sel.valor_total:,.2f}
+                """
+                st.markdown(card_item(f"Pedido #{pedido_sel.id_pedido}", "Detalhamento da Ordem", detalhes_html, status=status_fmt), unsafe_allow_html=True)
 
                 st.divider()
                 st.markdown("#### Itens Incluídos")
                 for item in pedido_sel.pedidoItem:
                     nome_prod = item.produto.nome if item.produto else f"Produto #{item.id_produto}"
-                    st.write(f"• **{nome_prod}**: {item.quantidade} un. x R$ {item.valor_unitario:.2f} = **R$ {item.valor_total:.2f}**")
+                    st.write(f"• **{nome_prod}**: {item.quantidade} un. x R$ {item.valor_unitario:,.2f} = **R$ {item.valor_total:,.2f}**")
 
     with aba_cancelar:
         st.subheader("Cancelar Pedido de Compra")
@@ -209,7 +213,7 @@ with SessionLocal() as db:
             pedido_cancelar = st.selectbox(
                 "Selecione o Pedido a Cancelar",
                 pedidos_cancelaveis,
-                format_func=lambda p: f"Pedido #{p.id_pedido} - CNPJ: {p.cnpj_fornecedor} - R$ {p.valor_total:.2f}",
+                format_func=lambda p: f"Pedido #{p.id_pedido} - CNPJ: {p.cnpj_fornecedor} - R$ {p.valor_total:,.2f}",
                 index=None,
                 placeholder="Busque o pedido que deseja cancelar..."
             )

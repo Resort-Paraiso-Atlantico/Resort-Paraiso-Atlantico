@@ -37,7 +37,7 @@ with tab_criar:
 
         capacidade = st.number_input("Capacidade", min_value=1, step=1)
 
-        submitted = st.form_submit_button("Cadastrar", use_container_width=True)
+        submitted = st.form_submit_button("Cadastrar", width="stretch")
 
     if submitted:
         try:
@@ -65,10 +65,10 @@ with tab_listar:
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Listar todos", use_container_width=True):
+        if st.button("Listar todos", width="stretch"):
             st.session_state["filtro_evento"] = "todos"
     with col2:
-        if st.button("Listar não encerrados", use_container_width=True):
+        if st.button("Listar não encerrados", width="stretch"):
             st.session_state["filtro_evento"] = "nao_encerrados"
 
     filtro = st.session_state.get("filtro_evento", "todos")
@@ -128,7 +128,7 @@ with tab_editar:
 
             capacidade_e = st.number_input("Capacidade", min_value=1, step=1, value=evento_atual.capacidade)
 
-            atualizar_submitted = st.form_submit_button("Salvar alterações", use_container_width=True)
+            atualizar_submitted = st.form_submit_button("Salvar alterações", width="stretch")
 
         if atualizar_submitted:
             try:
@@ -150,7 +150,7 @@ with tab_editar:
                 st.error(f"Erro ao atualizar evento: {e}")
 
         st.divider()
-        if st.button("Remover este evento", use_container_width=True):
+        if st.button("Remover este evento", width="stretch"):
             try:
                 with SessionLocal() as db:
                     service = EventoService(db)
@@ -179,7 +179,7 @@ with tab_inscrever:
 
         cpf_hospede_insc = st.text_input("CPF do Hóspede", max_chars=14, placeholder="000.000.000-00")
 
-        if st.button("Inscrever", use_container_width=True):
+        if st.button("Inscrever", width="stretch"):
             try:
                 with SessionLocal() as db:
                     service = HospedeEventoService(db)
@@ -208,7 +208,7 @@ with tab_inscritos:
         evento_list = st.selectbox("Selecione o evento", list(opcoes_evento_list.keys()), key="select_inscritos")
         id_evento_list = opcoes_evento_list[evento_list]
 
-        if st.button("Buscar inscritos", use_container_width=True):
+        if st.button("Buscar inscritos", width="stretch"):
             try:
                 with SessionLocal() as db:
                     service = HospedeEventoService(db)
@@ -242,7 +242,7 @@ with tab_por_hospede:
 
     cpf_busca = st.text_input("CPF do Hóspede", max_chars=14, placeholder="000.000.000-00", key="cpf_busca_eventos")
 
-    if st.button("Buscar eventos", use_container_width=True):
+    if st.button("Buscar eventos", width="stretch"):
         try:
             with SessionLocal() as db:
                 service = HospedeEventoService(db)

@@ -35,7 +35,7 @@ with tab_por_suite:
         suite_selecionada = st.selectbox("Selecione a suíte", list(opcoes_suite.keys()))
         id_suite_alvo = opcoes_suite[suite_selecionada]
 
-        if st.button("Buscar histórico", use_container_width=True):
+        if st.button("Buscar histórico", width="stretch"):
             try:
                 with SessionLocal() as db:
                     service = ReservaSuiteService(db)
@@ -62,7 +62,7 @@ with tab_valor_estadia:
 
     id_vinculo = st.number_input("ID do vínculo (ReservaSuite)", min_value=1, step=1, key="id_valor_estadia")
 
-    if st.button("Calcular valor", use_container_width=True):
+    if st.button("Calcular valor", width="stretch"):
         try:
             with SessionLocal() as db:
                 service = ReservaSuiteService(db)
@@ -91,7 +91,7 @@ with tab_valor_total:
         reserva_selecionada = st.selectbox("Selecione a reserva", list(opcoes_reserva.keys()), key="select_valor_total")
         id_reserva_alvo = opcoes_reserva[reserva_selecionada]
 
-        if st.button("Calcular valor total", use_container_width=True):
+        if st.button("Calcular valor total", width="stretch"):
             try:
                 with SessionLocal() as db:
                     service = ReservaSuiteService(db)
@@ -109,7 +109,7 @@ with tab_corrigir:
     id_vinculo_corrigir = st.number_input("ID do vínculo (ReservaSuite)", min_value=1, step=1, key="id_corrigir")
     nova_data_entrada = st.date_input("Nova data de entrada", value=date.today(), key="nova_data_entrada")
 
-    if st.button("Corrigir", use_container_width=True):
+    if st.button("Corrigir", width="stretch"):
         try:
             with SessionLocal() as db:
                 service = ReservaSuiteService(db)
