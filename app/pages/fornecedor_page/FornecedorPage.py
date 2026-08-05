@@ -13,31 +13,119 @@ if not st.user.is_logged_in:
 aplicar_tema()
 cabecalho("Fornecedores", "Cadastre e gerencie os parceiros e fornecedores do resort", "🚚")
 
+
+@st.dialog("➕ Cadastrar Novo Fornecedor")
+def modal_cadastrar_fornecedor(service):
+    with st.form("form_modal_cadastrar_fornecedor"):
+        cnpj = st.text_input("CNPJ", placeholder="00.000.000/0000-00 ou números")
+        nome = st.text_input("Nome / Razão Social")
+        telefone = st.text_input("Telefone")
+        email = st.text_input("Email")
+        endereco = st.text_input("Endereço Completo")
+        submitted = st.form_submit_button("Cadastrar Fornecedor", type="primary", width="stretch")
+
+        if submitted:
+            cnpj_limpo = sanitizar_documento(cnpj)
+            try:
+                service.criar_fornecedor(cnpj_limpo or cnpj, nome, telefone, email, endereco)
+                st.success("Fornecedor cadastrado com sucesso!")
+                st.rerun()
+            except ValueError as e:
+                st.error(str(e))
+            except IntegrityError:
+                st.error("Já existe um fornecedor cadastrado com este CNPJ.")
+
+
+@st.dialog("✏️ Editar Fornecedor")
+def modal_editar_fornecedor(service, fornecedor):
+    with st.form("form_modal_editar_fornecedor"):
+        st.caption(f"Editando dados de **CNPJ: {fornecedor.cnpj}**")
+        nome = st.text_input("Nome / Razão Social", value=fornecedor.nome)
+        telefone = st.text_input("Telefone", value=fornecedor.telefone or "")
+        email = st.text_input("Email", value=fornecedor.email or "")
+        endereco = st.text_input("Endereço", value=fornecedor.endereco or "")
+        submitted = st.form_submit_button("Salvar Alterações", type="primary", width="stretch")
+
+        if submitted:
+            try:
+                service.atualizar_fornecedor(fornecedor.cnpj, nome, telefone, email, endereco)
+                st.success("Fornecedor atualizado com sucesso!")
+                st.rerun()
+            except ValueError as e:
+                st.error(str(e))
+
+
 with SessionLocal() as db:
     service = FornecedorService(db)
     fornecedores = service.listar_fornecedores()
 
-    aba_listar, aba_cadastrar, aba_atualizar, aba_remover = st.tabs(
-        ["📋 Listar", "➕ Cadastrar", "✏️ Editar", "🗑️ Remover"]
-    )
+    col_busca, col_vis, col_btn = st.columns([4, 2, 2])
+    with col_busca:
+        termo_busca = st.text_input("🔍 Pesquisar por Nome, CNPJ, E-mail ou Telefone", key="busca_fornecedores", placeholder="Digite para buscar...")
+    with col_vis:
+        modo_vis = st.radio("Modo de Visão", ["🎴 Cards", "📊 Tabela"], horizontal=True, label_visibility="collapsed", key="vis_fornecedores")
+    with col_btn:
+        if st.button("➕ Novo Fornecedor", type="primary", width="stretch", key="btn_novo_fornecedor_top"):
+            modal_cadastrar_fornecedor(service)
 
-    with aba_listar:
-        st.subheader("Todos os fornecedores")
-        
-        c1, c2 = st.columns([3, 1])
-        with c1:
-            termo_busca = st.text_input("🔍 Pesquisar por Nome, CNPJ, E-mail ou Telefone", key="busca_fornecedores")
-        with c2:
-            st.metric("Total Cadastrado", len(fornecedores))
+    fornecedores_filtrados = [
+        f for f in fornecedores
+        if atende_termo_busca(termo_busca, f.nome, f.cnpj, f.email, f.telefone, f.endereco)
+    ]
 
-        fornecedores_filtrados = [
-            f for f in fornecedores
-            if atende_termo_busca(termo_busca, f.nome, f.cnpj, f.email, f.telefone, f.endereco)
-        ]
+    st.divider()
 
-        st.divider()
+    if not fornecedores_filtrados:
+        if termo_busca:
+            st.info(f"Nenhum fornecedor encontrado para '{termo_busca}'.")
+        else:
+            st.info("Nenhum fornecedor cadastrado ainda.")
+    else:
+        if modo_vis == "📊 Tabela":
+            dados_tabela = [
+                {
+                    "CNPJ": f.cnpj,
+                    "Nome / Razão Social": f.nome,
+                    "Telefone": f.telefone or "—",
+                    "E-mail": f.email or "—",
+                    "Endereço": f.endereco or "—"
+                }
+                for f in fornecedores_filtrados
+            ]
+            st.dataframe(
+                dados_tabela,
+                width="stretch",
+                column_config={
+                    "CNPJ": st.column_config.TextColumn("CNPJ", width="medium"),
+                    "Nome / Razão Social": st.column_config.TextColumn("Nome / Razão Social", width="large"),
+                    "Telefone": st.column_config.TextColumn("Telefone", width="small"),
+                    "E-mail": st.column_config.TextColumn("E-mail", width="medium"),
+                }
+            )
 
-        if fornecedores_filtrados:
+            st.caption("⚙️ **Ações Rápidas da Tabela:**")
+            c_act1, c_act2, c_act3 = st.columns([4, 2, 2])
+            with c_act1:
+                forn_sel_tab = st.selectbox(
+                    "Selecione um fornecedor da tabela para alterar",
+                    fornecedores_filtrados,
+                    format_func=lambda f: f"{f.nome} (CNPJ: {f.cnpj})",
+                    key="sel_tab_forn",
+                    index=None,
+                    placeholder="Selecione um fornecedor..."
+                )
+            with c_act2:
+                if st.button("✏️ Editar Fornecedor", key="btn_edit_tab_forn", width="stretch", disabled=not forn_sel_tab):
+                    modal_editar_fornecedor(service, forn_sel_tab)
+            with c_act3:
+                if st.button("🗑️ Excluir Fornecedor", key="btn_del_tab_forn", width="stretch", disabled=not forn_sel_tab):
+                    try:
+                        service.remover_fornecedor(forn_sel_tab.cnpj)
+                        st.success(f"Fornecedor {forn_sel_tab.nome} removido.")
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))
+        else:
             cols = st.columns(2)
             for i, h in enumerate(fornecedores_filtrados):
                 detalhes = f"""
@@ -50,83 +138,15 @@ with SessionLocal() as db:
                         card_item(h.nome, "Fornecedor Registrado", detalhes, status="Ativo"),
                         unsafe_allow_html=True,
                     )
-        else:
-            if termo_busca:
-                st.info(f"Nenhum fornecedor encontrado para '{termo_busca}'.")
-            else:
-                st.info("Nenhum fornecedor cadastrado.")
-
-    with aba_cadastrar:
-        st.subheader("Cadastrar novo fornecedor")
-        with st.form("form_cadastro"):
-            cnpj = st.text_input("CNPJ", placeholder="00.000.000/0000-00 ou números")
-            nome = st.text_input("Nome")
-            telefone = st.text_input("Telefone")
-            email = st.text_input("Email")
-            endereco = st.text_input("Endereço")
-            submitted = st.form_submit_button("Cadastrar", type="primary")
-
-            if submitted:
-                cnpj_limpo = sanitizar_documento(cnpj)
-                try:
-                    service.criar_fornecedor(cnpj_limpo or cnpj, nome, telefone, email, endereco)
-                    st.success("Fornecedor cadastrado com sucesso.")
-                    st.rerun()
-                except ValueError as e:
-                    st.error(str(e))
-                except IntegrityError:
-                    st.error("Já existe um fornecedor cadastrado com este CNPJ.")
-
-    with aba_atualizar:
-        st.subheader("Atualizar fornecedor")
-        if not fornecedores:
-            st.info("Nenhum fornecedor disponível para edição.")
-        else:
-            fornecedor_sel = st.selectbox(
-                "Selecione o fornecedor",
-                fornecedores,
-                format_func=lambda f: f"{f.nome} (CNPJ: {f.cnpj})",
-                key="select_fornecedor_atualizar",
-                index=None,
-                placeholder="Busque por nome ou CNPJ..."
-            )
-
-            if fornecedor_sel:
-                with st.form("form_atualizar"):
-                    nome = st.text_input("Nome", value=fornecedor_sel.nome)
-                    telefone = st.text_input("Telefone", value=fornecedor_sel.telefone or "")
-                    email = st.text_input("Email", value=fornecedor_sel.email or "")
-                    endereco = st.text_input("Endereço", value=fornecedor_sel.endereco or "")
-                    submitted = st.form_submit_button("Salvar alterações", type="primary")
-
-                    if submitted:
-                        try:
-                            service.atualizar_fornecedor(fornecedor_sel.cnpj, nome, telefone, email, endereco)
-                            st.success("Fornecedor atualizado com sucesso.")
-                            st.rerun()
-                        except ValueError as e:
-                            st.error(str(e))
-
-    with aba_remover:
-        st.subheader("Remover fornecedor")
-        if not fornecedores:
-            st.info("Nenhum fornecedor disponível para remoção.")
-        else:
-            fornecedor_rem = st.selectbox(
-                "Selecione o fornecedor a remover",
-                fornecedores,
-                format_func=lambda f: f"{f.nome} (CNPJ: {f.cnpj})",
-                key="select_fornecedor_remover",
-                index=None,
-                placeholder="Busque por nome ou CNPJ..."
-            )
-
-            if fornecedor_rem:
-                st.warning(f"Tem certeza que deseja remover o fornecedor **{fornecedor_rem.nome}** (CNPJ: {fornecedor_rem.cnpj})?")
-                if st.button("Confirmar Remoção", type="primary"):
-                    try:
-                        service.remover_fornecedor(fornecedor_rem.cnpj)
-                        st.success("Fornecedor removido com sucesso.")
-                        st.rerun()
-                    except ValueError as e:
-                        st.error(str(e))
+                    c_edit, c_del = st.columns(2)
+                    with c_edit:
+                        if st.button(f"✏️ Editar", key=f"btn_edit_card_{h.cnpj}", width="stretch"):
+                            modal_editar_fornecedor(service, h)
+                    with c_del:
+                        if st.button(f"🗑️ Excluir", key=f"btn_del_card_{h.cnpj}", width="stretch"):
+                            try:
+                                service.remover_fornecedor(h.cnpj)
+                                st.success(f"Fornecedor {h.nome} removido.")
+                                st.rerun()
+                            except ValueError as e:
+                                st.error(str(e))

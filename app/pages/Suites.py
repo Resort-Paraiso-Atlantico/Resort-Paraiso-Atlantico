@@ -24,6 +24,36 @@ def _status_ocupacao(suite, ocupadas_agora: set) -> str:
     return "Ocupada" if suite.id_suite in ocupadas_agora else "Disponível"
 
 
+@st.dialog("➕ Cadastrar Nova Suíte")
+def modal_cadastrar_suite():
+    st.caption("Suítes novas começam disponíveis. Ocupação é calculada automaticamente pelas reservas.")
+    with st.form("form_modal_suite"):
+        numero = st.number_input("Número da Suíte", min_value=1, step=1)
+        tipo = st.selectbox("Tipo", ["Standard", "Luxo", "Master"])
+        capacidade = st.number_input("Capacidade (Hóspedes)", min_value=1, step=1, value=2)
+        valor_diaria = st.number_input("Valor da Diária (R$)", min_value=0.0, value=250.00, format="%.2f")
+        status = st.selectbox("Status Inicial", ["Disponível", "Manutenção"])
+        submitted = st.form_submit_button("Cadastrar Suíte", type="primary", width="stretch")
+
+    if submitted:
+        try:
+            with SessionLocal() as db:
+                suite = SuiteService(db).criar_suite(
+                    numero=int(numero),
+                    tipo=tipo,
+                    capacidade=int(capacidade),
+                    valor_diaria=valor_diaria,
+                    status=status,
+                )
+                numero_criado = suite.numero
+            st.success(f"Suíte nº {numero_criado} cadastrada com sucesso!")
+            st.rerun()
+        except ValueError as e:
+            st.error(str(e))
+        except Exception as e:
+            st.error(f"Erro ao cadastrar suíte: {e}")
+
+
 tab_listar, tab_cadastrar, tab_historico = st.tabs(["📋 Listar & Status", "➕ Cadastrar Suíte", "📜 Histórico por Suíte"])
 
 # ── Listar & Limpeza ────────────────────────────────────────────────────────────
@@ -48,9 +78,17 @@ with tab_listar:
 
     st.divider()
 
-    col_tipo, col_status, col_limpeza = st.columns([2, 2, 2])
-    tipos = sorted({s.tipo for s in todas_suites})
-    filtro_tipo = col_tipo.multiselect("Tipo", tipos, default=tipos)
+    c_filtros, c_vis, c_btn = st.columns([4, 2, 2])
+    with c_filtros:
+        tipos = sorted({s.tipo for s in todas_suites})
+        filtro_tipo = st.multiselect("Filtrar Categoria", tipos, default=tipos)
+    with c_vis:
+        modo_vis = st.radio("Visão", ["🎴 Cards", "📊 Tabela"], horizontal=True, label_visibility="collapsed", key="vis_suites")
+    with c_btn:
+        if st.button("➕ Nova Suíte", type="primary", width="stretch", key="btn_nova_suite_top"):
+            modal_cadastrar_suite()
+
+    col_status, col_limpeza = st.columns(2)
     filtro_status = col_status.selectbox("Status", ["Todos", "Disponível", "Ocupada", "Manutenção"])
     somente_sujas = col_limpeza.checkbox("Só precisando de limpeza")
 
@@ -66,40 +104,61 @@ with tab_listar:
     if not suites:
         st.info("Nenhuma suíte encontrada com esse filtro.")
     else:
-        cols = st.columns(2)
-        for i, s in enumerate(suites):
-            precisa_limpeza = s.ultima_limpeza is None or s.ultima_limpeza < limite_limpeza
-            limpeza_txt = s.ultima_limpeza.strftime("%d/%m/%Y %H:%M") if s.ultima_limpeza else "nunca registrada"
-            aviso_limpeza = " · 🧹 <b>precisa de limpeza</b>" if precisa_limpeza else ""
-            status_atual = status_exibicao[s.id_suite]
-            detalhes = f"""
-            <strong>Tipo & Cap:</strong> {s.tipo} · {s.capacidade} pax · R$ {s.valor_diaria:,.2f}/diária<br>
-            <strong>Última limpeza:</strong> {limpeza_txt}{aviso_limpeza}
-            """
-            with cols[i % 2]:
-                st.markdown(
-                    card_item(f"Suíte nº {s.numero}", f"Categoria: {s.tipo}", detalhes, status=status_atual),
-                    unsafe_allow_html=True,
-                )
-                if precisa_limpeza:
-                    if st.button(f"🧹 Registrar limpeza — nº {s.numero}", key=f"limpar_{s.id_suite}", width="stretch"):
-                        try:
-                            with SessionLocal() as db:
-                                SuiteService(db).registrar_limpeza(s.id_suite)
-                            st.rerun()
-                        except ValueError as e:
-                            st.error(str(e))
-
-                if s.status == "Manutenção":
-                    with st.expander(f"⚙️ Ações administrativas — nº {s.numero}"):
-                        st.caption("Tira a suíte do modo manutenção. A disponibilidade pra reservas volta a ser calculada normalmente.")
-                        if st.button(f"🔓 Tirar de Manutenção — nº {s.numero}", key=f"forcar_disp_{s.id_suite}", width="stretch"):
+        if modo_vis == "📊 Tabela":
+            dados_tabela = [
+                {
+                    "Número": f"Nº {s.numero}",
+                    "Tipo": s.tipo,
+                    "Capacidade": f"{s.capacidade} pax",
+                    "Diária": float(s.valor_diaria),
+                    "Última Limpeza": s.ultima_limpeza.strftime("%d/%m/%Y %H:%M") if s.ultima_limpeza else "nunca",
+                    "Status": status_exibicao[s.id_suite]
+                }
+                for s in suites
+            ]
+            st.dataframe(
+                dados_tabela,
+                width="stretch",
+                column_config={
+                    "Número": st.column_config.TextColumn("Quarto", width="small"),
+                    "Diária": st.column_config.NumberColumn("Valor Diária", format="R$ %.2f"),
+                }
+            )
+        else:
+            cols = st.columns(2)
+            for i, s in enumerate(suites):
+                precisa_limpeza = s.ultima_limpeza is None or s.ultima_limpeza < limite_limpeza
+                limpeza_txt = s.ultima_limpeza.strftime("%d/%m/%Y %H:%M") if s.ultima_limpeza else "nunca registrada"
+                aviso_limpeza = " · 🧹 <b>precisa de limpeza</b>" if precisa_limpeza else ""
+                status_atual = status_exibicao[s.id_suite]
+                detalhes = f"""
+                <strong>Tipo & Cap:</strong> {s.tipo} · {s.capacidade} pax · R$ {s.valor_diaria:,.2f}/diária<br>
+                <strong>Última limpeza:</strong> {limpeza_txt}{aviso_limpeza}
+                """
+                with cols[i % 2]:
+                    st.markdown(
+                        card_item(f"Suíte nº {s.numero}", f"Categoria: {s.tipo}", detalhes, status=status_atual),
+                        unsafe_allow_html=True,
+                    )
+                    if precisa_limpeza:
+                        if st.button(f"🧹 Registrar limpeza — nº {s.numero}", key=f"limpar_{s.id_suite}", width="stretch"):
                             try:
                                 with SessionLocal() as db:
-                                    SuiteService(db).deixar_disponivel(s.id_suite)
+                                    SuiteService(db).registrar_limpeza(s.id_suite)
                                 st.rerun()
                             except ValueError as e:
                                 st.error(str(e))
+
+                    if s.status == "Manutenção":
+                        with st.expander(f"⚙️ Ações administrativas — nº {s.numero}"):
+                            st.caption("Tira a suíte do modo manutenção.")
+                            if st.button(f"🔓 Tirar de Manutenção — nº {s.numero}", key=f"forcar_disp_{s.id_suite}", width="stretch"):
+                                try:
+                                    with SessionLocal() as db:
+                                        SuiteService(db).deixar_disponivel(s.id_suite)
+                                    st.rerun()
+                                except ValueError as e:
+                                    st.error(str(e))
 
 # ── Cadastrar Suíte ─────────────────────────────────────────────────────────────
 with tab_cadastrar:

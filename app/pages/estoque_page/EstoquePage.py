@@ -14,47 +14,118 @@ if not st.user.is_logged_in:
 aplicar_tema()
 cabecalho("Estoque", "Controle de movimentações, entrada e saída de produtos", "📦")
 
+
+@st.dialog("📥 Registrar Entrada Manual")
+def modal_entrada_estoque(estoque_service, produtos):
+    with st.form("form_modal_entrada"):
+        produto = st.selectbox(
+            "Selecione o Produto",
+            produtos,
+            format_func=lambda p: f"#{p.id_produto} - {p.nome} (Atual: {p.quantidade} un.)",
+            index=None,
+            placeholder="Digite para pesquisar o produto..."
+        )
+        quantidade = st.number_input("Quantidade de Entrada", min_value=1, step=1, value=1)
+        enviar = st.form_submit_button("Confirmar Entrada", type="primary", width="stretch")
+
+        if enviar:
+            if not produto:
+                st.error("Selecione um produto.")
+            else:
+                try:
+                    estoque_service.registrar_entrada(produto.id_produto, quantidade)
+                    st.success(f"Entrada de {quantidade} un. registrada para '{produto.nome}'.")
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+
+
+@st.dialog("📤 Registrar Saída / Baixa")
+def modal_saida_estoque(estoque_service, produtos):
+    with st.form("form_modal_saida"):
+        produto = st.selectbox(
+            "Selecione o Produto",
+            produtos,
+            format_func=lambda p: f"#{p.id_produto} - {p.nome} (Atual: {p.quantidade} un.)",
+            index=None,
+            placeholder="Digite para pesquisar o produto..."
+        )
+        quantidade = st.number_input("Quantidade de Saída", min_value=1, step=1, value=1)
+        enviar = st.form_submit_button("Confirmar Saída", type="primary", width="stretch")
+
+        if enviar:
+            if not produto:
+                st.error("Selecione um produto.")
+            else:
+                try:
+                    estoque_service.registrar_saida(produto.id_produto, quantidade)
+                    st.success(f"Saída de {quantidade} un. registrada para '{produto.nome}'.")
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+
+
 with SessionLocal() as db:
     estoque_service = EstoqueService(db)
     produto_service = ProdutoService(db)
     pedido_service = PedidoCompraService(db)
 
     aba_consultar, aba_entrada, aba_saida, aba_receber = st.tabs(
-        ["📋 Consultar", "📥 Entrada Manual", "📤 Saída / Baixa", "🚚 Receber Pedido"]
+        ["📋 Consultar & Movimentar", "📥 Entrada Manual", "📤 Saída / Baixa", "🚚 Receber Pedido"]
     )
 
     with aba_consultar:
-        st.subheader("Consulta de Estoque")
         produtos = produto_service.listar_todos()
 
         if not produtos:
             st.info("Nenhum produto cadastrado.")
         else:
-            pesquisa_estoque = st.text_input("🔍 Pesquisar produto no estoque por Nome ou Categoria", key="busca_estoque")
+            c_busca, c_ent, c_sai = st.columns([4, 2, 2])
+            with c_busca:
+                pesquisa_estoque = st.text_input("🔍 Pesquisar produto no estoque por Nome ou Categoria", key="busca_estoque")
+            with c_ent:
+                if st.button("📥 Entrada Rápida", type="primary", width="stretch", key="btn_ent_top"):
+                    modal_entrada_estoque(estoque_service, produtos)
+            with c_sai:
+                if st.button("📤 Saída Rápida", width="stretch", key="btn_sai_top"):
+                    modal_saida_estoque(estoque_service, produtos)
 
             produtos_filtrados = [
                 p for p in produtos
                 if atende_termo_busca(pesquisa_estoque, p.nome, p.categoria, p.id_produto)
             ]
 
+            st.divider()
+
             if not produtos_filtrados:
                 st.info(f"Nenhum produto encontrado para '{pesquisa_estoque}'.")
             else:
                 dados = [
                     {
-                        "Código": p.id_produto,
+                        "Código": f"#{p.id_produto}",
                         "Produto": p.nome,
                         "Categoria": p.categoria,
                         "Qtd Atual": p.quantidade,
-                        "Mínimo": p.estoque_minimo,
-                        "Valor Unit. (R$)": f"R$ {p.valor_unitario:,.2f}",
-                        "Valor Total (R$)": f"R$ {(p.quantidade * p.valor_unitario):,.2f}",
+                        "Estoque Mínimo": p.estoque_minimo,
+                        "Preço Unitário": float(p.valor_unitario),
+                        "Valor em Estoque": float(p.quantidade * p.valor_unitario),
                         "Status": "🔴 Crítico" if p.quantidade == 0 else ("🟡 Baixo" if p.quantidade <= p.estoque_minimo else "🟢 Normal")
                     }
                     for p in produtos_filtrados
                 ]
 
-                st.dataframe(dados, width="stretch")
+                st.dataframe(
+                    dados,
+                    width="stretch",
+                    column_config={
+                        "Código": st.column_config.TextColumn("Código", width="small"),
+                        "Produto": st.column_config.TextColumn("Produto", width="medium"),
+                        "Preço Unitário": st.column_config.NumberColumn("Preço Unitário", format="R$ %.2f"),
+                        "Valor em Estoque": st.column_config.NumberColumn("Valor em Estoque", format="R$ %.2f"),
+                        "Qtd Atual": st.column_config.NumberColumn("Qtd Atual"),
+                        "Estoque Mínimo": st.column_config.NumberColumn("Mínimo"),
+                    }
+                )
 
     with aba_entrada:
         st.subheader("Registrar Entrada Manual")
