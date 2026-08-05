@@ -34,6 +34,59 @@ def _email_valido(email: str) -> bool:
     return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email or ""))
 
 
+@st.dialog("➕ Cadastrar Novo Hóspede")
+def modal_cadastrar_hospede(service):
+    with st.form("form_modal_cadastrar_hospede_res"):
+        cpf = st.text_input("CPF", placeholder="Somente números ou 000.000.000-00", max_chars=14)
+        nome = st.text_input("Nome Completo")
+        telefone = st.text_input("Telefone", placeholder="(00) 00000-0000")
+        email = st.text_input("E-mail")
+        endereco = st.text_input("Endereço Completo")
+        submitted = st.form_submit_button("Cadastrar Hóspede", type="primary", width="stretch")
+
+        if submitted:
+            cpf_limpo = _somente_digitos(cpf)
+            if len(cpf_limpo) != 11:
+                st.error("CPF inválido — informe os 11 dígitos.")
+            elif not nome.strip():
+                st.error("Nome é obrigatório.")
+            elif not _email_valido(email):
+                st.error("Informe um e-mail válido.")
+            else:
+                try:
+                    service.criar_hospede(
+                        cpf_limpo, nome.strip(), telefone.strip(), email.strip(), endereco.strip()
+                    )
+                    st.success("Hóspede cadastrado com sucesso!")
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+
+
+@st.dialog("✏️ Editar Hóspede")
+def modal_editar_hospede(service, hospede):
+    with st.form("form_modal_editar_hospede_res"):
+        st.caption(f"Editando hóspede **CPF: {_formatar_cpf(hospede.cpf)}**")
+        nome = st.text_input("Nome Completo", value=hospede.nome)
+        telefone = st.text_input("Telefone", value=hospede.telefone or "")
+        email = st.text_input("E-mail", value=hospede.email or "")
+        endereco = st.text_input("Endereço Completo", value=hospede.endereco or "")
+        submitted = st.form_submit_button("Salvar Alterações", type="primary", width="stretch")
+
+        if submitted:
+            if not nome.strip():
+                st.error("Nome é obrigatório.")
+            elif not _email_valido(email):
+                st.error("Informe um e-mail válido.")
+            else:
+                try:
+                    service.atualizar_hospede(hospede.cpf, nome.strip(), telefone.strip(), email.strip(), endereco.strip())
+                    st.success("Hóspede atualizado com sucesso!")
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+
+
 def _reset_wizard():
     st.session_state["wiz_reserva"] = {"step": 1}
 
@@ -340,236 +393,265 @@ with tab_criar:
 
 # ── Gerenciar Reservas ───────────────────────────────────────────────────────────
 with tab_listar:
-    st.subheader("Reservas cadastradas")
-
     with SessionLocal() as db:
         todas_reservas = ReservaService(db).listar_reservas()
         nomes = {r.id_reserva: (r.hospede.nome if r.hospede else r.cpf_hospede) for r in todas_reservas}
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total", len(todas_reservas))
+    c1.metric("Total de Reservas", len(todas_reservas))
     c2.metric("Pendentes", sum(1 for r in todas_reservas if r.status == "Pendente"))
     c3.metric("Confirmadas", sum(1 for r in todas_reservas if r.status == "Confirmada"))
     c4.metric("Hospedados", sum(1 for r in todas_reservas if r.status == "Hospedado"))
 
     st.divider()
 
-    col_cpf, col_status = st.columns([2, 1])
-    cpf_filtro = col_cpf.text_input("Filtrar por CPF (opcional)", placeholder="000.000.000-00")
-    status_filtro = col_status.selectbox(
-        "Status", ["Todos", "Pendente", "Confirmada", "Hospedado", "Finalizada", "Cancelada"]
-    )
+    c_busca, c_status, c_vis = st.columns([4, 2, 2])
+    with c_busca:
+        termo_reserva = st.text_input("🔍 Pesquisar por Hóspede, CPF ou código ID", key="busca_gerenciar_reservas", placeholder="Digite o nome, CPF ou ID...")
+    with c_status:
+        status_filtro = st.selectbox(
+            "Filtrar Status", ["Todos", "Pendente", "Confirmada", "Hospedado", "Finalizada", "Cancelada"], key="filtro_status_res"
+        )
+    with c_vis:
+        modo_vis_res = st.radio("Modo de Visão", ["🎴 Cards", "📊 Tabela"], horizontal=True, label_visibility="collapsed", key="vis_gerenciar_reservas")
 
-    reservas = todas_reservas
-    if cpf_filtro.strip():
-        cpf_limpo = _somente_digitos(cpf_filtro)
-        reservas = [r for r in reservas if _somente_digitos(r.cpf_hospede) == cpf_limpo]
+    reservas_filtradas = todas_reservas
+    if termo_reserva.strip():
+        reservas_filtradas = [
+            r for r in reservas_filtradas
+            if atende_termo_busca(termo_reserva, r.id_reserva, r.cpf_hospede, nomes.get(r.id_reserva, ""))
+        ]
     if status_filtro != "Todos":
-        reservas = [r for r in reservas if r.status == status_filtro]
-    reservas = sorted(reservas, key=lambda r: r.id_reserva, reverse=True)
+        reservas_filtradas = [r for r in reservas_filtradas if r.status == status_filtro]
+    reservas_filtradas = sorted(reservas_filtradas, key=lambda r: r.id_reserva, reverse=True)
 
-    if not reservas:
-        st.info("Nenhuma reserva encontrada.")
+    st.divider()
+
+    if not reservas_filtradas:
+        st.info("Nenhuma reserva encontrada com os filtros aplicados.")
     else:
-        for r in reservas:
-            valor_texto = f"R$ {r.valor_total:,.2f}" if r.valor_total is not None else "—"
-            st.markdown(
-                f"""
-                <div class="resort-suite-card">
-                    <span class="resort-suite-number">Reserva #{r.id_reserva}</span>
-                    &nbsp;{badge_status(r.status)}
-                    <div class="resort-suite-meta">
-                        Hóspede: {nomes[r.id_reserva]} · {r.checkin_previsto} → {r.checkout_previsto}
-                        · Valor: {valor_texto}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
+        if modo_vis_res == "📊 Tabela":
+            dados_tabela_res = []
+            for r in reservas_filtradas:
+                dt_in = r.checkin_previsto.strftime("%d/%m/%Y") if hasattr(r.checkin_previsto, "strftime") else str(r.checkin_previsto)
+                dt_out = r.checkout_previsto.strftime("%d/%m/%Y") if hasattr(r.checkout_previsto, "strftime") else str(r.checkout_previsto)
+                dados_tabela_res.append({
+                    "ID": f"#{r.id_reserva}",
+                    "Hóspede": nomes.get(r.id_reserva, r.cpf_hospede),
+                    "CPF": _formatar_cpf(r.cpf_hospede),
+                    "Check-in Previsto": dt_in,
+                    "Check-out Previsto": dt_out,
+                    "Valor Total": float(r.valor_total or 0.0),
+                    "Status": r.status
+                })
+            st.dataframe(
+                dados_tabela_res,
+                width="stretch",
+                column_config={
+                    "ID": st.column_config.TextColumn("Código", width="small"),
+                    "Hóspede": st.column_config.TextColumn("Hóspede", width="large"),
+                    "Valor Total": st.column_config.NumberColumn("Valor Total", format="R$ %.2f"),
+                }
             )
 
-            col_a, col_b, col_c = st.columns(3)
+            st.caption("⚙️ **Ações Rápidas da Tabela:**")
+            c_act1, c_act2, c_act3 = st.columns([4, 2, 2])
+            with c_act1:
+                res_sel_tab = st.selectbox(
+                    "Selecione uma reserva da tabela para alterar status",
+                    reservas_filtradas,
+                    format_func=lambda r: f"Reserva #{r.id_reserva} — {nomes.get(r.id_reserva, r.cpf_hospede)} ({r.status})",
+                    key="sel_tab_reserva_act",
+                    index=None,
+                    placeholder="Selecione uma reserva..."
+                )
+            with c_act2:
+                if res_sel_tab and res_sel_tab.status == "Pendente":
+                    if st.button("✅ Confirmar Pagamento", key="btn_conf_tab_res", width="stretch"):
+                        try:
+                            with SessionLocal() as db:
+                                ReservaService(db).atualizar_status_pagamento(res_sel_tab.id_reserva, "Confirmada")
+                                try:
+                                    valor_total = ReservaSuiteService(db).calcular_valor_total_reserva(res_sel_tab.id_reserva)
+                                    ReservaService(db).definir_valor_total(res_sel_tab.id_reserva, valor_total)
+                                except ValueError:
+                                    pass
+                            st.success(f"Reserva #{res_sel_tab.id_reserva} confirmada!")
+                            st.rerun()
+                        except ValueError as e:
+                            st.error(str(e))
+                elif res_sel_tab and res_sel_tab.status == "Confirmada":
+                    if st.button("↩️ Reverter p/ Pendente", key="btn_rev_tab_res", width="stretch"):
+                        try:
+                            with SessionLocal() as db:
+                                ReservaService(db).atualizar_status_pagamento(res_sel_tab.id_reserva, "Pendente")
+                            st.success(f"Reserva #{res_sel_tab.id_reserva} voltou para Pendente.")
+                            st.rerun()
+                        except ValueError as e:
+                            st.error(str(e))
+            with c_act3:
+                if res_sel_tab and res_sel_tab.status in ("Pendente", "Confirmada"):
+                    if st.button("🚫 Cancelar Reserva", key="btn_canc_tab_res", width="stretch"):
+                        try:
+                            with SessionLocal() as db:
+                                ReservaService(db).cancelar_reserva(res_sel_tab.id_reserva)
+                            st.success(f"Reserva #{res_sel_tab.id_reserva} cancelada.")
+                            st.rerun()
+                        except ValueError as e:
+                            st.error(str(e))
+        else:
+            cols = st.columns(2)
+            for i, r in enumerate(reservas_filtradas):
+                valor_texto = f"R$ {r.valor_total:,.2f}" if r.valor_total is not None else "R$ 0,00"
+                dt_in = r.checkin_previsto.strftime("%d/%m/%Y") if hasattr(r.checkin_previsto, "strftime") else str(r.checkin_previsto)
+                dt_out = r.checkout_previsto.strftime("%d/%m/%Y") if hasattr(r.checkout_previsto, "strftime") else str(r.checkout_previsto)
 
-            if r.status == "Pendente":
-                if col_a.button("✅ Confirmar pagamento", key=f"confirmar_{r.id_reserva}", width="stretch"):
-                    try:
-                        with SessionLocal() as db:
-                            ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Confirmada")
-
-                            # Ao confirmar o pagamento, a reserva passa a contar como
-                            # receita no Financeiro global — por isso já calculamos e
-                            # travamos o valor total aqui (soma das suítes vinculadas),
-                            # em vez de depender de um passo manual separado.
-                            try:
-                                valor_total = ReservaSuiteService(db).calcular_valor_total_reserva(r.id_reserva)
-                                ReservaService(db).definir_valor_total(r.id_reserva, valor_total)
-                            except ValueError:
-                                # Sem suíte vinculada ainda: reserva fica confirmada mesmo
-                                # assim, mas sem valor até que uma suíte seja vinculada.
-                                pass
-
-                        st.success(f"Reserva #{r.id_reserva} confirmada!")
-                        st.rerun()
-                    except ValueError as e:
-                        st.error(str(e))
-
-            elif r.status == "Confirmada":
-                if col_a.button("↩️ Reverter p/ Pendente", key=f"reverter_{r.id_reserva}", width="stretch"):
-                    try:
-                        with SessionLocal() as db:
-                            ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Pendente")
-                        st.success(f"Reserva #{r.id_reserva} voltou para Pendente.")
-                        st.rerun()
-                    except ValueError as e:
-                        st.error(str(e))
-
-            if r.status in ("Pendente", "Confirmada"):
-                if col_b.button("🚫 Cancelar reserva", key=f"cancelar_{r.id_reserva}", width="stretch"):
-                    try:
-                        with SessionLocal() as db:
-                            ReservaService(db).cancelar_reserva(r.id_reserva)
-                        st.success(f"Reserva #{r.id_reserva} cancelada.")
-                        st.rerun()
-                    except ValueError as e:
-                        st.error(str(e))
+                detalhes = f"""
+                <strong>Hóspede:</strong> {nomes.get(r.id_reserva, r.cpf_hospede)}<br>
+                <strong>Período:</strong> {dt_in} → {dt_out}<br>
+                <strong>Valor Total:</strong> {valor_texto}
+                """
+                with cols[i % 2]:
+                    st.markdown(
+                        card_item(f"Reserva #{r.id_reserva}", f"CPF: {_formatar_cpf(r.cpf_hospede)}", detalhes, status=r.status),
+                        unsafe_allow_html=True,
+                    )
+                    c_act_a, c_act_b = st.columns(2)
+                    with c_act_a:
+                        if r.status == "Pendente":
+                            if st.button("✅ Confirmar pagamento", key=f"conf_card_res_{r.id_reserva}", width="stretch"):
+                                try:
+                                    with SessionLocal() as db:
+                                        ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Confirmada")
+                                        try:
+                                            valor_total = ReservaSuiteService(db).calcular_valor_total_reserva(r.id_reserva)
+                                            ReservaService(db).definir_valor_total(r.id_reserva, valor_total)
+                                        except ValueError:
+                                            pass
+                                    st.success(f"Reserva #{r.id_reserva} confirmada!")
+                                    st.rerun()
+                                except ValueError as e:
+                                    st.error(str(e))
+                        elif r.status == "Confirmada":
+                            if st.button("↩️ Reverter p/ Pendente", key=f"rev_card_res_{r.id_reserva}", width="stretch"):
+                                try:
+                                    with SessionLocal() as db:
+                                        ReservaService(db).atualizar_status_pagamento(r.id_reserva, "Pendente")
+                                    st.success(f"Reserva #{r.id_reserva} voltou para Pendente.")
+                                    st.rerun()
+                                except ValueError as e:
+                                    st.error(str(e))
+                    with c_act_b:
+                        if r.status in ("Pendente", "Confirmada"):
+                            if st.button("🚫 Cancelar reserva", key=f"canc_card_res_{r.id_reserva}", width="stretch"):
+                                try:
+                                    with SessionLocal() as db:
+                                        ReservaService(db).cancelar_reserva(r.id_reserva)
+                                    st.success(f"Reserva #{r.id_reserva} cancelada.")
+                                    st.rerun()
+                                except ValueError as e:
+                                    st.error(str(e))
 
 # ── Hóspedes ──────────────────────────────────────────────────────────────────────
 with tab_hospedes:
-    st.subheader("Cadastro de hóspedes")
+    st.subheader("Cadastro e Gerenciamento de Hóspedes")
 
-    aba_cadastrar, aba_listar, aba_atualizar, aba_remover = st.tabs(
-        ["Cadastrar", "Listar", "Atualizar", "Remover"]
-    )
+    with SessionLocal() as db:
+        hospedes_reserva = HospedeService(db).listar_hospedes()
 
-    with aba_cadastrar:
-        with st.form("form_cadastro_hospede"):
-            cpf = st.text_input("CPF", placeholder="Somente números ou 000.000.000-00", max_chars=14)
-            nome = st.text_input("Nome")
-            telefone = st.text_input("Telefone", placeholder="(00) 00000-0000")
-            email = st.text_input("Email")
-            endereco = st.text_input("Endereço")
-            submitted = st.form_submit_button("Cadastrar")
+    c_busca, c_vis, c_btn = st.columns([4, 2, 2])
+    with c_busca:
+        termo_busca_h = st.text_input("🔍 Pesquisar por Nome, CPF, Telefone ou E-mail", key="busca_hospedes_tab_reserva", placeholder="Digite para buscar...")
+    with c_vis:
+        modo_vis_h = st.radio("Modo de Visão", ["🎴 Cards", "📊 Tabela"], horizontal=True, label_visibility="collapsed", key="vis_hospedes_tab_reserva")
+    with c_btn:
+        if st.button("➕ Novo Hóspede", type="primary", width="stretch", key="btn_novo_hospede_reserva_tab"):
+            modal_cadastrar_hospede(HospedeService(db))
 
-            if submitted:
-                cpf_limpo = _somente_digitos(cpf)
-                if len(cpf_limpo) != 11:
-                    st.error("CPF inválido — informe os 11 dígitos.")
-                elif not nome.strip():
-                    st.error("Nome é obrigatório.")
-                elif not _email_valido(email):
-                    st.error("Informe um e-mail válido.")
-                else:
-                    try:
-                        with SessionLocal() as db:
-                            HospedeService(db).criar_hospede(
-                                cpf_limpo, nome.strip(), telefone.strip(), email.strip(), endereco.strip()
-                            )
-                        st.success("Hóspede cadastrado com sucesso!")
-                    except ValueError as e:
-                        st.error(str(e))
+    hospedes_filtrados_res = [
+        h for h in hospedes_reserva
+        if atende_termo_busca(termo_busca_h, h.nome, h.cpf, h.email, h.telefone, h.endereco)
+    ]
 
-    with aba_listar:
-        with SessionLocal() as db:
-            hospedes = HospedeService(db).listar_hospedes()
+    st.divider()
 
-        st.metric("Total de hóspedes", len(hospedes))
-
-        busca_termo = st.text_input("🔍 Pesquisar por Nome, CPF, E-mail ou Telefone", key="busca_hospedes_gerenciar")
-        hospedes_filtrados = [
-            h for h in hospedes
-            if atende_termo_busca(busca_termo, h.nome, h.cpf, h.email, h.telefone, h.endereco)
-        ]
-
-        if hospedes_filtrados:
-            cols = st.columns(2)
-            for i, h in enumerate(hospedes_filtrados):
-                with cols[i % 2]:
-                    st.markdown(
-                        f"""
-                        <div class="resort-suite-card">
-                            <span class="resort-suite-number">{h.nome}</span>
-                            <div class="resort-suite-meta">
-                                CPF: {_formatar_cpf(h.cpf)}<br>
-                                📞 {h.telefone or '—'} · ✉️ {h.email or '—'}<br>
-                                📍 {h.endereco or '—'}
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+    if not hospedes_filtrados_res:
+        if termo_busca_h:
+            st.info(f"Nenhum hóspede encontrado para '{termo_busca_h}'.")
         else:
-            if busca_termo:
-                st.info(f"Nenhum hóspede encontrado para '{busca_termo}'.")
-            else:
-                st.info("Nenhum hóspede cadastrado.")
-
-    with aba_atualizar:
-        with SessionLocal() as db:
-            todos_hospedes = HospedeService(db).listar_hospedes()
-
-        if not todos_hospedes:
-            st.info("Nenhum hóspede cadastrado para edição.")
-        else:
-            hospede_sel = st.selectbox(
-                "Selecione o hóspede a editar",
-                todos_hospedes,
-                format_func=lambda h: f"{h.nome} (CPF: {_formatar_cpf(h.cpf)})",
-                key="select_hospede_atualizar",
-                index=None,
-                placeholder="Busque por nome ou CPF..."
+            st.info("Nenhum hóspede cadastrado ainda.")
+    else:
+        if modo_vis_h == "📊 Tabela":
+            dados_tabela_h = [
+                {
+                    "CPF": _formatar_cpf(h.cpf),
+                    "Nome Completo": h.nome,
+                    "Telefone": h.telefone or "—",
+                    "E-mail": h.email or "—",
+                    "Endereço": h.endereco or "—"
+                }
+                for h in hospedes_filtrados_res
+            ]
+            st.dataframe(
+                dados_tabela_h,
+                width="stretch",
+                column_config={
+                    "CPF": st.column_config.TextColumn("CPF", width="small"),
+                    "Nome Completo": st.column_config.TextColumn("Hóspede", width="large"),
+                    "Telefone": st.column_config.TextColumn("Telefone", width="medium"),
+                    "E-mail": st.column_config.TextColumn("E-mail", width="medium"),
+                }
             )
 
-            if hospede_sel:
-                st.caption(f"Editando: {hospede_sel.nome} — CPF {_formatar_cpf(hospede_sel.cpf)}")
-                with st.form("form_atualizar_hospede"):
-                    nome = st.text_input("Nome", value=hospede_sel.nome)
-                    telefone = st.text_input("Telefone", value=hospede_sel.telefone or "")
-                    email = st.text_input("Email", value=hospede_sel.email or "")
-                    endereco = st.text_input("Endereço", value=hospede_sel.endereco or "")
-                    submitted = st.form_submit_button("Salvar alterações", type="primary")
-
-                    if submitted:
-                        if not nome.strip():
-                            st.error("Nome é obrigatório.")
-                        elif not _email_valido(email):
-                            st.error("Informe um e-mail válido.")
-                        else:
-                            try:
-                                with SessionLocal() as db:
-                                    HospedeService(db).atualizar_hospede(
-                                        hospede_sel.cpf, nome.strip(), telefone.strip(), email.strip(), endereco.strip()
-                                    )
-                                st.success("Hóspede atualizado com sucesso!")
-                                st.rerun()
-                            except ValueError as e:
-                                st.error(str(e))
-
-    with aba_remover:
-        st.caption("Só é possível remover hóspedes que não tenham nenhuma reserva cadastrada.")
-        with SessionLocal() as db:
-            todos_hospedes = HospedeService(db).listar_hospedes()
-
-        if not todos_hospedes:
-            st.info("Nenhum hóspede disponível para remoção.")
-        else:
-            hospede_rem = st.selectbox(
-                "Selecione o hóspede a remover",
-                todos_hospedes,
-                format_func=lambda h: f"{h.nome} (CPF: {_formatar_cpf(h.cpf)})",
-                key="select_hospede_remover",
-                index=None,
-                placeholder="Busque por nome ou CPF..."
-            )
-
-            if hospede_rem:
-                confirmar = st.checkbox(f"Confirmo que desejo remover permanentemente o hóspede {hospede_rem.nome}.")
-                if st.button("Remover Hóspede", type="primary", disabled=not confirmar):
+            st.caption("⚙️ **Ações Rápidas da Tabela:**")
+            c_act1, c_act2, c_act3 = st.columns([4, 2, 2])
+            with c_act1:
+                hosp_sel_tab = st.selectbox(
+                    "Selecione um hóspede da tabela para alterar",
+                    hospedes_filtrados_res,
+                    format_func=lambda h: f"{h.nome} (CPF: {_formatar_cpf(h.cpf)})",
+                    key="sel_tab_hosp_reserva",
+                    index=None,
+                    placeholder="Selecione um hóspede..."
+                )
+            with c_act2:
+                if st.button("✏️ Editar Hóspede", key="btn_edit_tab_hosp_reserva", width="stretch", disabled=not hosp_sel_tab):
+                    modal_editar_hospede(HospedeService(db), hosp_sel_tab)
+            with c_act3:
+                if st.button("🗑️ Excluir Hóspede", key="btn_del_tab_hosp_reserva", width="stretch", disabled=not hosp_sel_tab):
                     try:
-                        with SessionLocal() as db:
-                            HospedeService(db).remover_hospede(hospede_rem.cpf)
-                        st.success("Hóspede removido com sucesso!")
+                        with SessionLocal() as db_del:
+                            HospedeService(db_del).remover_hospede(hosp_sel_tab.cpf)
+                        st.success(f"Hóspede {hosp_sel_tab.nome} removido.")
                         st.rerun()
                     except ValueError as e:
                         st.error(str(e))
+        else:
+            cols = st.columns(2)
+            for i, h in enumerate(hospedes_filtrados_res):
+                detalhes = f"""
+                <strong>CPF:</strong> {_formatar_cpf(h.cpf)}<br>
+                📞 {h.telefone or '—'} &nbsp;·&nbsp; ✉️ {h.email or '—'}<br>
+                📍 {h.endereco or '—'}
+                """
+                with cols[i % 2]:
+                    st.markdown(
+                        card_item(h.nome, "Hóspede Registrado", detalhes, status="Ativo"),
+                        unsafe_allow_html=True,
+                    )
+                    c_edit, c_del = st.columns(2)
+                    with c_edit:
+                        if st.button("✏️ Editar", key=f"btn_edit_res_hosp_{h.cpf}", width="stretch"):
+                            modal_editar_hospede(HospedeService(db), h)
+                    with c_del:
+                        if st.button("🗑️ Excluir", key=f"btn_del_res_hosp_{h.cpf}", width="stretch"):
+                            try:
+                                with SessionLocal() as db_del:
+                                    HospedeService(db_del).remover_hospede(h.cpf)
+                                st.success(f"Hóspede {h.nome} removido.")
+                                st.rerun()
+                            except ValueError as e:
+                                st.error(str(e))
 
 # ── Ajustar Suítes ────────────────────────────────────────────────────────────────
     with tab_suites:

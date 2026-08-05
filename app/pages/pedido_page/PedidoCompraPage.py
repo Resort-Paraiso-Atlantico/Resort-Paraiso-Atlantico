@@ -17,6 +17,20 @@ if not st.user.is_logged_in:
 aplicar_tema()
 cabecalho("Pedidos de Compra", "Cadastre e gerencie as ordens de aquisição de insumos", "🛒")
 
+
+@st.dialog("🔍 Detalhes do Pedido")
+def modal_detalhes_pedido(pedido):
+    status_fmt = pedido.status.capitalize() if pedido.status else "Pendente"
+    st.caption(f"Visualizando Ordem de Compra **#{pedido.id_pedido}** ({status_fmt})")
+    st.write(f"**Fornecedor (CNPJ):** {pedido.cnpj_fornecedor}")
+    st.write(f"**Valor Total:** R$ {pedido.valor_total:,.2f}")
+    st.divider()
+    st.markdown("#### Itens Incluídos")
+    for item in pedido.pedidoItem:
+        nome_prod = item.produto.nome if item.produto else f"Produto #{item.id_produto}"
+        st.write(f"• **{nome_prod}**: {item.quantidade} un. x R$ {item.valor_unitario:,.2f} = **R$ {item.valor_total:,.2f}**")
+
+
 with SessionLocal() as db:
     pedido_service = PedidoCompraService(db)
     fornecedor_service = FornecedorService(db)
@@ -26,20 +40,21 @@ with SessionLocal() as db:
         st.session_state.itens_pedido = []
 
     aba_listar, aba_cadastrar, aba_consultar, aba_cancelar = st.tabs(
-        ["📋 Listar", "➕ Novo Pedido", "🔍 Consultar", "🚫 Cancelar"]
+        ["📋 Listar & Gerenciar", "➕ Novo Pedido", "🔍 Consultar", "🚫 Cancelar"]
     )
 
     with aba_listar:
-        st.subheader("Todos os Pedidos de Compra")
         pedidos = pedido_service.listar_todos()
 
         if not pedidos:
             st.info("Nenhum pedido de compra cadastrado.")
         else:
-            c1, c2 = st.columns([3, 1])
-            with c1:
-                termo_busca = st.text_input("🔍 Pesquisar por ID, CNPJ ou Status", key="busca_pedidos")
-            with c2:
+            c_busca, c_vis, c_metric = st.columns([4, 2, 2])
+            with c_busca:
+                termo_busca = st.text_input("🔍 Pesquisar por ID, CNPJ ou Status", key="busca_pedidos", placeholder="Digite para buscar...")
+            with c_vis:
+                modo_vis = st.radio("Modo de Visão", ["📊 Tabela", "🎴 Cards"], horizontal=True, label_visibility="collapsed", key="vis_pedidos")
+            with c_metric:
                 st.metric("Total de Pedidos", len(pedidos))
 
             pedidos_filtrados = [
@@ -52,18 +67,40 @@ with SessionLocal() as db:
             if not pedidos_filtrados:
                 st.info(f"Nenhum pedido encontrado para '{termo_busca}'.")
             else:
-                cols = st.columns(2)
-                for i, pedido in enumerate(pedidos_filtrados):
-                    detalhes = f"""
-                    <strong>Fornecedor (CNPJ):</strong> {pedido.cnpj_fornecedor}<br>
-                    <strong>Valor Total:</strong> R$ {pedido.valor_total:,.2f}
-                    """
-                    status_fmt = pedido.status.capitalize() if pedido.status else "Pendente"
-                    with cols[i % 2]:
-                        st.markdown(
-                            card_item(f"Pedido #{pedido.id_pedido}", "Ordem de Compra", detalhes, status=status_fmt),
-                            unsafe_allow_html=True,
-                        )
+                if modo_vis == "📊 Tabela":
+                    dados_tabela = [
+                        {
+                            "Pedido ID": f"#{p.id_pedido}",
+                            "Fornecedor CNPJ": p.cnpj_fornecedor,
+                            "Valor Total": float(p.valor_total),
+                            "Status": p.status.capitalize() if p.status else "Pendente"
+                        }
+                        for p in pedidos_filtrados
+                    ]
+                    st.dataframe(
+                        dados_tabela,
+                        width="stretch",
+                        column_config={
+                            "Pedido ID": st.column_config.TextColumn("Código", width="small"),
+                            "Fornecedor CNPJ": st.column_config.TextColumn("CNPJ Fornecedor", width="medium"),
+                            "Valor Total": st.column_config.NumberColumn("Valor Total", format="R$ %.2f"),
+                        }
+                    )
+                else:
+                    cols = st.columns(2)
+                    for i, pedido in enumerate(pedidos_filtrados):
+                        detalhes = f"""
+                        <strong>Fornecedor (CNPJ):</strong> {pedido.cnpj_fornecedor}<br>
+                        <strong>Valor Total:</strong> R$ {pedido.valor_total:,.2f}
+                        """
+                        status_fmt = pedido.status.capitalize() if pedido.status else "Pendente"
+                        with cols[i % 2]:
+                            st.markdown(
+                                card_item(f"Pedido #{pedido.id_pedido}", "Ordem de Compra", detalhes, status=status_fmt),
+                                unsafe_allow_html=True,
+                            )
+                            if st.button(f"🔍 Ver Detalhes", key=f"btn_detalhes_ped_{pedido.id_pedido}", width="stretch"):
+                                modal_detalhes_pedido(pedido)
 
     with aba_cadastrar:
         st.subheader("Novo Pedido de Compra")
