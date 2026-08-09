@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 from sqlalchemy.exc import IntegrityError
 
@@ -13,6 +14,14 @@ if not st.user.is_logged_in:
 aplicar_tema()
 cabecalho("Fornecedores", "Cadastre e gerencie os parceiros e fornecedores do resort", "🚚")
 
+def _formatar_cnpj(cnpj: str) -> str:
+    cnpj = sanitizar_documento(cnpj)
+    if len(cnpj) == 14:
+        return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}"
+    return cnpj
+
+def _email_valido(email: str) -> bool:
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email or ""))
 
 @st.dialog("➕ Cadastrar Novo Fornecedor")
 def modal_cadastrar_fornecedor(service):
@@ -26,8 +35,18 @@ def modal_cadastrar_fornecedor(service):
 
         if submitted:
             cnpj_limpo = sanitizar_documento(cnpj)
+            if len(cnpj_limpo) != 14:
+                st.error("CNPJ inválido! informe os 14 dígitos corretamente.")
+            elif not nome.strip():
+                st.error("Nome é obrigatório.")
+            elif not telefone.strip():
+                st.error("Telefone é obrigatório.")
+            elif not _email_valido(email):
+                st.error("Informe um e-mail válido.")
+            elif not endereco.strip():
+                st.error("Endereço é obrigatório.")
             try:
-                service.criar_fornecedor(cnpj_limpo or cnpj, nome, telefone, email, endereco)
+                service.criar_fornecedor(cnpj_limpo, nome, telefone, email, endereco)
                 st.success("Fornecedor cadastrado com sucesso!")
                 st.rerun()
             except ValueError as e:
@@ -39,7 +58,7 @@ def modal_cadastrar_fornecedor(service):
 @st.dialog("✏️ Editar Fornecedor")
 def modal_editar_fornecedor(service, fornecedor):
     with st.form("form_modal_editar_fornecedor"):
-        st.caption(f"Editando dados de **CNPJ: {fornecedor.cnpj}**")
+        st.caption(f"Editando dados de **CNPJ: {_formatar_cnpj(fornecedor.cnpj)}**")
         nome = st.text_input("Nome / Razão Social", value=fornecedor.nome)
         telefone = st.text_input("Telefone", value=fornecedor.telefone or "")
         email = st.text_input("Email", value=fornecedor.email or "")
@@ -84,7 +103,7 @@ with SessionLocal() as db:
         if modo_vis == "📊 Tabela":
             dados_tabela = [
                 {
-                    "CNPJ": f.cnpj,
+                    "CNPJ": _formatar_cnpj(f.cnpj),
                     "Nome / Razão Social": f.nome,
                     "Telefone": f.telefone or "—",
                     "E-mail": f.email or "—",
@@ -129,7 +148,7 @@ with SessionLocal() as db:
             cols = st.columns(2)
             for i, h in enumerate(fornecedores_filtrados):
                 detalhes = f"""
-                <strong>CNPJ:</strong> {h.cnpj}<br>
+                <strong>CNPJ:</strong> {_formatar_cnpj(h.cnpj)}<br>
                 📞 {h.telefone or '—'} &nbsp;·&nbsp; ✉️ {h.email or '—'}<br>
                 📍 {h.endereco or '—'}
                 """
