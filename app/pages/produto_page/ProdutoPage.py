@@ -13,43 +13,110 @@ aplicar_tema()
 cabecalho("Produtos", "Cadastre e controle o catálogo de produtos do resort", "📦")
 
 
-@st.dialog("➕ Cadastrar Novo Produto")
-def modal_cadastrar_produto(service):
-    with st.form("form_modal_cadastro_produto"):
-        nome = st.text_input("Nome do Produto")
-        categoria = st.selectbox("Categoria", ["Alimentos", "Bebidas", "Limpeza", "Utensílios", "Outros"])
-        estoque_minimo = st.number_input("Estoque Mínimo", min_value=1, value=5)
-        valor_unitario = st.number_input("Valor Unitário (R$)", min_value=0.01, value=10.00, format="%.2f")
-        submitted = st.form_submit_button("Cadastrar Produto", type="primary", width="stretch")
+def obter_categorias_disponiveis(produtos):
+    padrao = ["Alimentos", "Bebidas", "Limpeza", "Utensílios", "Outros"]
+    existentes = [p.categoria for p in produtos if p.categoria]
+    return sorted(list(set(padrao + existentes)))
 
-        if submitted:
+
+@st.dialog("➕ Cadastrar Novo Produto")
+def modal_cadastrar_produto(produtos_existentes):
+    nome = st.text_input("Nome do Produto", key="cad_nome")
+    
+    opcoes_cat = obter_categorias_disponiveis(produtos_existentes) + ["➕ Outra (Nova Categoria...)"]
+    cat_selecionada = st.selectbox("Categoria", opcoes_cat, key="cad_cat_sel")
+    if cat_selecionada == "➕ Outra (Nova Categoria...)":
+        categoria = st.text_input("Digite o Nome da Nova Categoria", placeholder="Ex: Higiene, Papelaria...", key="cad_cat_custom")
+    else:
+        categoria = cat_selecionada
+
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        valor_unitario = st.number_input("Valor Unitário / Custo (R$)", min_value=0.01, value=10.00, format="%.2f", key="cad_val_unit")
+        estoque_minimo = st.number_input("Estoque Mínimo", min_value=1, value=5, key="cad_est_min")
+        ponto_reposicao = st.number_input("Ponto de Reposição", min_value=0, value=10, key="cad_ponto_rep")
+    with col_c2:
+        preco_venda = st.number_input("Preço de Venda (R$)", min_value=0.01, value=15.00, format="%.2f", key="cad_preco_venda")
+        estoque_maximo = st.number_input("Estoque Máximo", min_value=1, value=50, key="cad_est_max")
+        lead_time = st.number_input("Lead Time (dias)", min_value=0, value=3, key="cad_lead_time")
+
+    if st.button("Cadastrar Produto", type="primary", width="stretch", key="btn_cad_submit"):
+        if not nome or not nome.strip():
+            st.error("Por favor, informe o nome do produto.")
+        elif not categoria or not categoria.strip():
+            st.error("Por favor, informe a categoria do produto.")
+        else:
             try:
-                service.criar_produto(nome, categoria, estoque_minimo, valor_unitario)
+                with SessionLocal() as db:
+                    service = ProdutoService(db)
+                    service.criar_produto(
+                        nome=nome.strip(),
+                        categoria=categoria.strip().title(),
+                        estoque_minimo=estoque_minimo,
+                        valor_unitario=valor_unitario,
+                        preco_venda=preco_venda,
+                        estoque_maximo=estoque_maximo,
+                        ponto_reposicao=ponto_reposicao,
+                        lead_time=lead_time
+                    )
                 st.success("Produto cadastrado com sucesso!")
                 st.rerun()
             except ValueError as e:
                 st.error(str(e))
+            except Exception as e:
+                st.error(f"Erro ao cadastrar produto: {str(e)}")
 
 
 @st.dialog("✏️ Editar Produto")
-def modal_editar_produto(db, produto):
-    with st.form("form_modal_atualizar_produto"):
-        st.caption(f"Editando produto **#{produto.id_produto} - {produto.nome}**")
-        nome = st.text_input("Nome", value=produto.nome)
-        categoria = st.text_input("Categoria", value=produto.categoria)
-        estoque_minimo = st.number_input("Estoque Mínimo", min_value=1, value=int(produto.estoque_minimo))
-        valor_unitario = st.number_input("Valor Unitário (R$)", min_value=0.01, value=float(produto.valor_unitario), format="%.2f")
-        submitted = st.form_submit_button("Salvar Alterações", type="primary", width="stretch")
+def modal_editar_produto(produto, produtos_existentes):
+    st.caption(f"Editando produto **#{produto.id_produto} - {produto.nome}**")
+    nome = st.text_input("Nome", value=produto.nome, key=f"edit_nome_{produto.id_produto}")
+    
+    opcoes_cat = obter_categorias_disponiveis(produtos_existentes) + ["➕ Outra (Nova Categoria...)"]
+    idx_cat = opcoes_cat.index(produto.categoria) if produto.categoria in opcoes_cat[:-1] else len(opcoes_cat) - 1
+    cat_selecionada = st.selectbox("Categoria", opcoes_cat, index=idx_cat, key=f"edit_cat_sel_{produto.id_produto}")
+    
+    if cat_selecionada == "➕ Outra (Nova Categoria...)":
+        default_custom = produto.categoria if produto.categoria not in opcoes_cat[:-1] else ""
+        categoria = st.text_input("Digite o Nome da Nova Categoria", value=default_custom, key=f"edit_cat_custom_{produto.id_produto}")
+    else:
+        categoria = cat_selecionada
 
-        if submitted:
+    col_e1, col_e2 = st.columns(2)
+    with col_e1:
+        valor_unitario = st.number_input("Valor Unitário / Custo (R$)", min_value=0.01, value=float(produto.valor_unitario), format="%.2f", key=f"edit_val_unit_{produto.id_produto}")
+        estoque_minimo = st.number_input("Estoque Mínimo", min_value=1, value=int(produto.estoque_minimo), key=f"edit_est_min_{produto.id_produto}")
+        ponto_reposicao = st.number_input("Ponto de Reposição", min_value=0, value=int(getattr(produto, 'ponto_reposicao', 0)), key=f"edit_ponto_rep_{produto.id_produto}")
+    with col_e2:
+        preco_venda = st.number_input("Preço de Venda (R$)", min_value=0.01, value=float(getattr(produto, 'preco_venda', 0.0) or 0.01), format="%.2f", key=f"edit_preco_venda_{produto.id_produto}")
+        estoque_maximo = st.number_input("Estoque Máximo", min_value=1, value=max(1, int(getattr(produto, 'estoque_maximo', 0))), key=f"edit_est_max_{produto.id_produto}")
+        lead_time = st.number_input("Lead Time (dias)", min_value=0, value=int(getattr(produto, 'lead_time', 0)), key=f"edit_lead_time_{produto.id_produto}")
+
+    if st.button("Salvar Alterações", type="primary", width="stretch", key=f"btn_edit_submit_{produto.id_produto}"):
+        if not nome or not nome.strip():
+            st.error("Por favor, informe o nome do produto.")
+        elif not categoria or not categoria.strip():
+            st.error("Por favor, informe a categoria do produto.")
+        else:
             try:
-                produto.nome = nome
-                produto.categoria = categoria
-                produto.estoque_minimo = estoque_minimo
-                produto.valor_unitario = valor_unitario
-                db.commit()
+                with SessionLocal() as db:
+                    service = ProdutoService(db)
+                    service.atualizar_produto(
+                        id_produto=produto.id_produto,
+                        nome=nome.strip(),
+                        quantidade=produto.quantidade,
+                        estoque_minimo=estoque_minimo,
+                        valor_unitario=valor_unitario,
+                        categoria=categoria.strip().title(),
+                        preco_venda=preco_venda,
+                        estoque_maximo=estoque_maximo,
+                        ponto_reposicao=ponto_reposicao,
+                        lead_time=lead_time
+                    )
                 st.success("Produto atualizado com sucesso!")
                 st.rerun()
+            except ValueError as e:
+                st.error(str(e))
             except Exception as e:
                 st.error(f"Erro ao atualizar produto: {str(e)}")
 
@@ -66,13 +133,13 @@ with SessionLocal() as db:
             key="busca_produtos"
         )
     with col_cat:
-        categorias = ["Todas"] + sorted(list(set(p.categoria for p in produtos)))
+        categorias = ["Todas"] + obter_categorias_disponiveis(produtos)
         categoria_filtro = st.selectbox("Categoria", categorias, key="filtro_cat_prod")
     with col_vis:
         modo_vis = st.radio("Modo de Visão", ["🎴 Cards", "📊 Tabela"], horizontal=True, label_visibility="collapsed", key="vis_produtos")
     with col_btn:
         if st.button("➕ Novo Produto", type="primary", width="stretch", key="btn_novo_prod_top"):
-            modal_cadastrar_produto(service)
+            modal_cadastrar_produto(produtos)
 
     produtos_filtrados = [
         p for p in produtos
@@ -100,7 +167,11 @@ with SessionLocal() as db:
                     "Categoria": p.categoria,
                     "Estoque Atual": p.quantidade,
                     "Estoque Mínimo": p.estoque_minimo,
-                    "Preço Unitário": float(p.valor_unitario),
+                    "Ponto Reposição": getattr(p, 'ponto_reposicao', 0),
+                    "Estoque Máximo": getattr(p, 'estoque_maximo', 0),
+                    "Lead Time": f"{getattr(p, 'lead_time', 0)} dias",
+                    "Custo Unitário": float(p.valor_unitario),
+                    "Preço de Venda": float(getattr(p, 'preco_venda', 0.0)),
                     "Valor Total": float(p.quantidade * p.valor_unitario),
                     "Status": "🔴 Sem estoque" if p.quantidade == 0 else ("🟡 Estoque baixo" if p.quantidade <= p.estoque_minimo else "🟢 Normal")
                 }
@@ -112,10 +183,14 @@ with SessionLocal() as db:
                 column_config={
                     "Código": st.column_config.TextColumn("Código", width="small"),
                     "Nome": st.column_config.TextColumn("Produto", width="medium"),
-                    "Preço Unitário": st.column_config.NumberColumn("Preço Unitário", format="R$ %.2f"),
+                    "Custo Unitário": st.column_config.NumberColumn("Custo Unitário", format="R$ %.2f"),
+                    "Preço de Venda": st.column_config.NumberColumn("Preço de Venda", format="R$ %.2f"),
                     "Valor Total": st.column_config.NumberColumn("Valor Total", format="R$ %.2f"),
                     "Estoque Atual": st.column_config.NumberColumn("Qtd Atual"),
                     "Estoque Mínimo": st.column_config.NumberColumn("Mínimo"),
+                    "Ponto Reposição": st.column_config.NumberColumn("Ponto Reposição"),
+                    "Estoque Máximo": st.column_config.NumberColumn("Máximo"),
+                    "Lead Time": st.column_config.TextColumn("Lead Time"),
                 }
             )
 
@@ -132,7 +207,7 @@ with SessionLocal() as db:
                 )
             with c_act2:
                 if st.button("✏️ Editar Produto", key="btn_edit_tab_prod", width="stretch", disabled=not prod_sel_tab):
-                    modal_editar_produto(db, prod_sel_tab)
+                    modal_editar_produto(prod_sel_tab, produtos)
             with c_act3:
                 if st.button("🗑️ Excluir Produto", key="btn_del_tab_prod", width="stretch", disabled=not prod_sel_tab):
                     try:
@@ -153,9 +228,10 @@ with SessionLocal() as db:
 
                 detalhes = f"""
                 <strong>Categoria:</strong> {produto.categoria}<br>
-                <strong>Preço Unitário:</strong> R$ {produto.valor_unitario:,.2f}<br>
-                <strong>Estoque Atual:</strong> {produto.quantidade} un. (Mínimo: {produto.estoque_minimo})<br>
-                <strong>Valor Total em Estoque:</strong> R$ {(produto.quantidade * produto.valor_unitario):,.2f}
+                <strong>Custo Unitário:</strong> R$ {produto.valor_unitario:,.2f} | <strong>Preço Venda:</strong> R$ {getattr(produto, 'preco_venda', 0.0):,.2f}<br>
+                <strong>Estoque:</strong> {produto.quantidade} un. (Mín: {produto.estoque_minimo} | Ponto Reposição: {getattr(produto, 'ponto_reposicao', 0)} | Máx: {getattr(produto, 'estoque_maximo', 0)})<br>
+                <strong>Lead Time:</strong> {getattr(produto, 'lead_time', 0)} dias<br>
+                <strong>Valor Total em Custo:</strong> R$ {(produto.quantidade * produto.valor_unitario):,.2f}
                 """
                 with cols[i % 2]:
                     st.markdown(
@@ -170,7 +246,7 @@ with SessionLocal() as db:
                     c_edit, c_del = st.columns(2)
                     with c_edit:
                         if st.button(f"✏️ Editar", key=f"btn_edit_prod_{produto.id_produto}", width="stretch"):
-                            modal_editar_produto(db, produto)
+                            modal_editar_produto(produto, produtos)
                     with c_del:
                         if st.button(f"🗑️ Excluir", key=f"btn_del_prod_{produto.id_produto}", width="stretch"):
                             try:
