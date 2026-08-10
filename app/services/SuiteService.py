@@ -37,15 +37,41 @@ class SuiteService:
     def listar_suites(self):
         return self.repository.listar_todas()
     
+    def alterar_status(self, id_suite: int, novo_status: str) -> Suite:
+        status_validos = ("Disponível", "Limpeza", "Manutenção")
+        if novo_status not in status_validos:
+            raise ValueError(f"Status inválido. Escolha um entre: {', '.join(status_validos)}.")
+        
+        suite = self.repository.buscar_por_id(id_suite)
+        if suite is None:
+            raise ValueError("Suíte não encontrada")
+        
+        suite.status = novo_status
+        if novo_status == "Disponível" and suite.status == "Limpeza":
+            suite.ultima_limpeza = datetime.now()
+            
+        return self.repository.atualizar(suite)
+
     def deixar_disponivel(self, id_suite: int) -> Suite:
         suite = self.repository.buscar_por_id(id_suite)
         if suite is None:
             raise ValueError("Suíte não encontrada")
 
-        if suite.status == "Disponível":
-            raise ValueError("Suíte já está disponível")
-
         suite.status = "Disponível"
+        return self.repository.atualizar(suite)
+
+    def colocar_em_manutencao(self, id_suite: int) -> Suite:
+        suite = self.repository.buscar_por_id(id_suite)
+        if suite is None:
+            raise ValueError("Suíte não encontrada")
+        suite.status = "Manutenção"
+        return self.repository.atualizar(suite)
+
+    def colocar_em_limpeza(self, id_suite: int) -> Suite:
+        suite = self.repository.buscar_por_id(id_suite)
+        if suite is None:
+            raise ValueError("Suíte não encontrada")
+        suite.status = "Limpeza"
         return self.repository.atualizar(suite)
 
     def registrar_limpeza(self, id_suite: int) -> Suite:
@@ -53,12 +79,13 @@ class SuiteService:
         if suite is None:
             raise ValueError("Suíte não encontrada")
         suite.ultima_limpeza = datetime.now()
+        suite.status = "Disponível"
         return self.repository.atualizar(suite)
 
     def listar_disponiveis_no_periodo(self, data_entrada: date, data_saida: date) -> list[Suite]:
         suites = self.repository.listar_todas()
         return [
             s for s in suites
-            if s.status != "Manutenção"
+            if s.status not in ("Manutenção", "Limpeza")
             and not self.reserva_suite_repository.existe_conflito(s.id_suite, data_entrada, data_saida)
         ]

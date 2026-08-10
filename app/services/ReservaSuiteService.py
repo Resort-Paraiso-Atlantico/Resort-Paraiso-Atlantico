@@ -36,6 +36,8 @@ class ReservaSuiteService:
 
         if suite.status == "Manutenção":
             raise ValueError("Suíte está em manutenção.")
+        if suite.status == "Limpeza":
+            raise ValueError("Suíte está em processo de limpeza.")
 
         if self.repository.existe_conflito(id_suite, data_entrada, data_saida):
             raise ValueError("Suíte já está ocupada nesse período.")

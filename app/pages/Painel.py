@@ -25,7 +25,7 @@ with SessionLocal() as db:
     reserva_suite_repo = ReservaSuiteRepository(db)
     ocupadas_agora = {
         s.id_suite for s in suites
-        if s.status != "Manutenção" and reserva_suite_repo.existe_conflito(s.id_suite, hoje, hoje + timedelta(days=1))
+        if s.status not in ("Manutenção", "Limpeza") and reserva_suite_repo.existe_conflito(s.id_suite, hoje, hoje + timedelta(days=1))
     }
 
 # ── KPIs principais ───────────────────────────────────────────────────────────
@@ -44,16 +44,18 @@ with col_esq:
     st.subheader("🛏️ Ocupação das suítes")
     total = len(suites) or 1
     ocupadas = len(ocupadas_agora)
+    em_limpeza = sum(1 for s in suites if s.status == "Limpeza")
     manutencao = sum(1 for s in suites if s.status == "Manutenção")
-    disponiveis = len(suites) - ocupadas - manutencao
+    disponiveis = max(0, len(suites) - ocupadas - em_limpeza - manutencao)
 
     st.progress(ocupadas / total)
     st.caption(f"**{ocupadas}** de **{len(suites)}** suítes ocupadas no momento")
 
-    sc1, sc2, sc3 = st.columns(3)
+    sc1, sc2, sc3, sc4 = st.columns(4)
     sc1.metric("Disponíveis", disponiveis)
     sc2.metric("Ocupadas", ocupadas)
-    sc3.metric("Manutenção", manutencao)
+    sc3.metric("Limpeza", em_limpeza)
+    sc4.metric("Manutenção", manutencao)
 
 # ── Alerta de limpeza ──────────────────────────────────────────────────────────
 with col_dir:
@@ -61,19 +63,18 @@ with col_dir:
     limite = datetime.now() - timedelta(days=DIAS_LIMPEZA_ALERTA)
     pendentes = [
         s for s in suites
-        if s.id_suite not in ocupadas_agora
-        and s.status != "Manutenção"
-        and (s.ultima_limpeza is None or s.ultima_limpeza < limite)
+        if s.status == "Limpeza"
+        or (s.id_suite not in ocupadas_agora and s.status != "Manutenção" and (s.ultima_limpeza is None or s.ultima_limpeza < limite))
     ]
     if not pendentes:
-        st.success("✨ Nenhuma suíte disponível precisa de limpeza no momento.")
+        st.success("✨ Nenhuma suíte precisa de limpeza no momento.")
     else:
-        st.warning(f"⚠️ **{len(pendentes)} suíte(s)** disponível(is) sem limpeza há mais de {DIAS_LIMPEZA_ALERTA} dias.")
+        st.warning(f"⚠️ **{len(pendentes)} suíte(s)** necessitando de limpeza no momento.")
         for s in pendentes:
             desde = s.ultima_limpeza.strftime("%d/%m %H:%M") if s.ultima_limpeza else "nunca registrada"
-            detalhes = f"Última limpeza registrada: <strong>{desde}</strong>"
+            detalhes = f"Status atual: <strong>{s.status}</strong> · Última limpeza: <strong>{desde}</strong>"
             st.markdown(
-                card_item(f"Suíte nº {s.numero}", f"{s.tipo} · {s.capacidade} pax", detalhes, status="Pendente"),
+                card_item(f"Suíte nº {s.numero}", f"{s.tipo} · {s.capacidade} pax", detalhes, status=s.status),
                 unsafe_allow_html=True
             )
         st.caption("Registre a limpeza na página **Suítes**.")
