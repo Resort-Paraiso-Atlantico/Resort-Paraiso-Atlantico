@@ -15,19 +15,36 @@ class ProdutoService:
         nome: str,
         categoria: str,
         estoque_minimo: int,
-        valor_unitario: float
+        valor_unitario: float,
+        preco_venda: float = 0.0,
+        estoque_maximo: int = 0,
+        ponto_reposicao: int = 0,
+        lead_time: int = 0
     ):
         if estoque_minimo <= 0:
             raise ValueError("A quantidade do estoque minimo deve ser superior a 0.")
         if valor_unitario <= 0:
             raise ValueError("O preço unitário do produto deve ser superior a 0.")
+        if preco_venda <= 0:
+            raise ValueError("O preço de venda do produto deve ser superior a 0.")
+        if estoque_maximo < estoque_minimo:
+            raise ValueError("O estoque máximo deve ser maior ou igual ao estoque mínimo.")
+        if ponto_reposicao < 0:
+            raise ValueError("O ponto de reposição deve ser maior ou igual a 0.")
+        if lead_time < 0:
+            raise ValueError("O lead time deve ser maior ou igual a 0.")
 
+        cat_formatada = categoria.strip().title() if categoria else ""
         produto = Produto(
             nome = nome,
-            categoria = categoria,
+            categoria = cat_formatada,
             quantidade = 0,
             estoque_minimo = estoque_minimo,
-            valor_unitario = valor_unitario
+            valor_unitario = valor_unitario,
+            preco_venda = preco_venda,
+            estoque_maximo = estoque_maximo,
+            ponto_reposicao = ponto_reposicao,
+            lead_time = lead_time
         )
         return self.repository.criar_produto(produto)
 
@@ -50,7 +67,12 @@ class ProdutoService:
         nome: str,
         quantidade: int,
         estoque_minimo: int,
-        valor_unitario: int
+        valor_unitario: float,
+        categoria: str = "",
+        preco_venda: float = 0.0,
+        estoque_maximo: int = 0,
+        ponto_reposicao: int = 0,
+        lead_time: int = 0
     ) -> Produto:
         produto = self.repository.buscar_por_id_produto(id_produto)
 
@@ -62,11 +84,25 @@ class ProdutoService:
             raise ValueError("A quantidade do estoque minimo deve ser superior a 0.")
         if valor_unitario <= 0:
             raise ValueError("O preço unitário do produto deve ser superior a 0.")
-        
+        if preco_venda <= 0:
+            raise ValueError("O preço de venda do produto deve ser superior a 0.")
+        if estoque_maximo < estoque_minimo:
+            raise ValueError("O estoque máximo deve ser maior ou igual ao estoque mínimo.")
+        if ponto_reposicao < 0:
+            raise ValueError("O ponto de reposição deve ser maior ou igual a 0.")
+        if lead_time < 0:
+            raise ValueError("O lead time deve ser maior ou igual a 0.")
+
         produto.nome = nome
+        if categoria:
+            produto.categoria = categoria.strip().title()
         produto.quantidade = quantidade
         produto.estoque_minimo = estoque_minimo
         produto.valor_unitario = valor_unitario
+        produto.preco_venda = preco_venda
+        produto.estoque_maximo = estoque_maximo
+        produto.ponto_reposicao = ponto_reposicao
+        produto.lead_time = lead_time
         return self.repository.atualizar(produto)
 
     def remover_produto(self, id_produto: int):

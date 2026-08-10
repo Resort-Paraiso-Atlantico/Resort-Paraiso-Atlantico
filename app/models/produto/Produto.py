@@ -11,5 +11,9 @@ class Produto(Base):
     quantidade: Mapped[int] = mapped_column(Integer, nullable = False)
     estoque_minimo: Mapped[int] = mapped_column(Integer, nullable = False)
     valor_unitario: Mapped[float] = mapped_column(Float, nullable = False)
+    preco_venda: Mapped[float] = mapped_column(Float, nullable = False)
+    estoque_maximo: Mapped[int] = mapped_column(Integer, nullable = False)
+    ponto_reposicao: Mapped[int] = mapped_column(Integer, nullable = False)
+    lead_time: Mapped[int] = mapped_column(Integer, nullable = False)
 
     pedidoItem = relationship("PedidoItem", back_populates = "produto")

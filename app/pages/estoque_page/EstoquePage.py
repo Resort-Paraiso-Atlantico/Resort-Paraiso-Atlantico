@@ -107,7 +107,11 @@ with SessionLocal() as db:
                         "Categoria": p.categoria,
                         "Qtd Atual": p.quantidade,
                         "Estoque Mínimo": p.estoque_minimo,
-                        "Preço Unitário": float(p.valor_unitario),
+                        "Ponto Reposição": getattr(p, 'ponto_reposicao', 0),
+                        "Estoque Máximo": getattr(p, 'estoque_maximo', 0),
+                        "Lead Time": f"{getattr(p, 'lead_time', 0)} d",
+                        "Custo Unitário": float(p.valor_unitario),
+                        "Preço de Venda": float(getattr(p, 'preco_venda', 0.0)),
                         "Valor em Estoque": float(p.quantidade * p.valor_unitario),
                         "Status": "🔴 Crítico" if p.quantidade == 0 else ("🟡 Baixo" if p.quantidade <= p.estoque_minimo else "🟢 Normal")
                     }
@@ -120,10 +124,14 @@ with SessionLocal() as db:
                     column_config={
                         "Código": st.column_config.TextColumn("Código", width="small"),
                         "Produto": st.column_config.TextColumn("Produto", width="medium"),
-                        "Preço Unitário": st.column_config.NumberColumn("Preço Unitário", format="R$ %.2f"),
+                        "Custo Unitário": st.column_config.NumberColumn("Custo Unitário", format="R$ %.2f"),
+                        "Preço de Venda": st.column_config.NumberColumn("Preço de Venda", format="R$ %.2f"),
                         "Valor em Estoque": st.column_config.NumberColumn("Valor em Estoque", format="R$ %.2f"),
                         "Qtd Atual": st.column_config.NumberColumn("Qtd Atual"),
                         "Estoque Mínimo": st.column_config.NumberColumn("Mínimo"),
+                        "Ponto Reposição": st.column_config.NumberColumn("Ponto Reposição"),
+                        "Estoque Máximo": st.column_config.NumberColumn("Máximo"),
+                        "Lead Time": st.column_config.TextColumn("Lead Time"),
                     }
                 )
 
