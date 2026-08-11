@@ -38,6 +38,7 @@ _BADGES = {
     
     "Pendente": ("#FFFBEB", "#B45309"),
     "Manutenção": ("#FFFBEB", "#B45309"),
+    "Limpeza": ("#FEF3C7", "#D97706"),
     "Estoque baixo": ("#FFFBEB", "#B45309"),
     "🟡 Estoque baixo": ("#FFFBEB", "#B45309"),
     "🔴 Sem estoque": ("#FEF2F2", "#B91C1C"),
