@@ -200,7 +200,7 @@ with tab_criar:
     # ── Passo 2: Datas ──────────────────────────────────────────────────────────
     elif etapa == 2:
         st.subheader("Passo 2 — Período padrão da estadia")
-        st.caption("Você poderá ajustar o período individualmente por suíte no próximo passo, se precisar.")
+        st.caption("Você poderá ajustar o período e a diária individualmente por suíte no próximo passo.")
         st.info(f"Hóspede: **{wiz['hospede_nome']}** · CPF {_formatar_cpf(wiz['cpf'])}")
 
         col1, col2 = st.columns(2)
@@ -225,11 +225,11 @@ with tab_criar:
                 wiz["step"] = 3
                 st.rerun()
 
-    # ── Passo 3: Suítes (período independente por suíte) ────────────────────────
+    # ── Passo 3: Suítes (período e diária negociada por suíte) ──────────────────
     elif etapa == 3:
-        st.subheader("Passo 3 — Escolha as suítes")
+        st.subheader("Passo 3 — Escolha as suítes e configure as diárias")
         st.info(f"Hóspede: **{wiz['hospede_nome']}**")
-        st.caption("Cada suíte pode ter seu próprio período de entrada e saída.")
+        st.caption("Cada suíte pode ter seu próprio período e um valor de diária customizado para esta reserva.")
 
         with SessionLocal() as db:
             disponiveis = SuiteService(db).listar_disponiveis_no_periodo(wiz["checkin"], wiz["checkout"])
@@ -243,13 +243,13 @@ with tab_criar:
             for suite in disponiveis:
                 with st.container(border=True):
                     marcar = st.checkbox(
-                        f"Suíte {suite.numero} - {suite.tipo}",
+                        f"Suíte {suite.numero} - {suite.tipo} (Padrão: R$ {suite.valor_diaria:,.2f}/dia)",
                         value=suite.id_suite in selecionadas,
                         key=f"wiz_marcar_{suite.id_suite}",
                     )
 
                     if marcar:
-                        col1, col2 = st.columns(2)
+                        col1, col2, col3 = st.columns([1.5, 1.5, 1.2])
 
                         entrada = col1.date_input(
                             "Entrada",
@@ -268,11 +268,22 @@ with tab_criar:
                             key=f"wiz_saida_{suite.id_suite}",
                         )
 
-                        noites = (saida - entrada).days
-                        subtotal = noites * suite.valor_diaria
+                        val_diaria_default = float(
+                            selecionadas.get(suite.id_suite, {}).get("valor_diaria", suite.valor_diaria)
+                        )
+                        valor_diaria_aplicado = col3.number_input(
+                            "Diária p/ Reserva (R$)",
+                            min_value=0.01,
+                            value=val_diaria_default,
+                            step=10.0,
+                            format="%.2f",
+                            key=f"wiz_diaria_{suite.id_suite}",
+                        )
 
-                        st.write(f"**Diárias:** {noites}")
-                        st.write(f"**Valor da diária:** R$ {suite.valor_diaria:,.2f}")
+                        noites = (saida - entrada).days
+                        subtotal = noites * valor_diaria_aplicado
+
+                        st.write(f"**Diárias:** {noites} · **Diária acordada:** R$ {valor_diaria_aplicado:,.2f}")
                         st.success(f"Subtotal: R$ {subtotal:,.2f}")
 
                         total += subtotal
@@ -282,7 +293,7 @@ with tab_criar:
                             "tipo": suite.tipo,
                             "entrada": entrada,
                             "saida": saida,
-                            "valor_diaria": suite.valor_diaria,
+                            "valor_diaria": valor_diaria_aplicado,
                             "subtotal": subtotal,
                         }
                     else:
@@ -291,7 +302,7 @@ with tab_criar:
             wiz["suites_sel"] = selecionadas
 
             st.divider()
-            st.metric("Valor estimado", f"R$ {total:,.2f}")
+            st.metric("Valor total estimado", f"R$ {total:,.2f}")
 
         col1, col2 = st.columns(2)
         if col1.button("⬅ Voltar"):
@@ -354,22 +365,16 @@ with tab_criar:
                                 id_suite=id_suite,
                                 data_entrada=dados["entrada"],
                                 data_saida=dados["saida"],
+                                valor_diaria=dados["valor_diaria"],  # <-- Diária específica gravada no vínculo
                             )
                         except ValueError as e:
                             falhas.append(str(e))
 
-                    # Ao confirmar a reserva (mesmo ainda "Pendente" de pagamento),
-                    # já calculamos e gravamos o valor total das suítes vinculadas.
-                    # Sem isso, a reserva aparecia no Financeiro sem valor até que
-                    # alguém passasse manualmente pela aba "Ajustar Suítes". Assim,
-                    # ela já entra em "Receitas pendentes de confirmação".
+                    # Grava o total calculado no registro da reserva
                     try:
                         valor_total = vinculo_service.calcular_valor_total_reserva(id_reserva_criada)
                         ReservaService(db).definir_valor_total(id_reserva_criada, valor_total)
                     except ValueError:
-                        # Nenhuma suíte foi vinculada com sucesso: reserva fica
-                        # criada mesmo assim, mas sem valor até que uma suíte
-                        # seja vinculada (via aba "Ajustar Suítes").
                         pass
 
                 wiz["step"] = 5
@@ -654,155 +659,150 @@ with tab_hospedes:
                                 st.error(str(e))
 
 # ── Ajustar Suítes ────────────────────────────────────────────────────────────────
-    with tab_suites:
-        st.subheader("Vincular ou remover suítes de uma reserva existente")
-        st.caption("Use esta aba para acrescentar uma suíte extra depois que a reserva já foi criada.")
+with tab_suites:
+    st.subheader("Vincular ou remover suítes de uma reserva existente")
+    st.caption("Use esta aba para acrescentar uma suíte extra depois que a reserva já foi criada.")
 
-        if "msg_vinculo" in st.session_state:
-            st.success(st.session_state.pop("msg_vinculo"))
+    if "msg_vinculo" in st.session_state:
+        st.success(st.session_state.pop("msg_vinculo"))
 
-        with SessionLocal() as db:
+    with SessionLocal() as db:
+        reserva_service = ReservaService(db)
+        reserva_suite_service = ReservaSuiteService(db)
+        suite_service = SuiteService(db)
 
-            reserva_service = ReservaService(db)
-            reserva_suite_service = ReservaSuiteService(db)
-            suite_service = SuiteService(db)
+        reservas = reserva_service.listar_reservas()
+        nomes = {
+            r.id_reserva: (r.hospede.nome if r.hospede else r.cpf_hospede)
+            for r in reservas
+        }
+        suites = suite_service.listar_suites()
 
-            reservas = reserva_service.listar_reservas()
-            nomes = {
-                r.id_reserva: (r.hospede.nome if r.hospede else r.cpf_hospede)
+        if not reservas:
+            st.info("Nenhuma reserva cadastrada.")
+
+        elif not suites:
+            st.info("Nenhuma suíte cadastrada.")
+
+        else:
+            opcoes_reserva = {
+                f"#{r.id_reserva} — {nomes[r.id_reserva]} ({r.status})": r.id_reserva
                 for r in reservas
             }
-            suites = suite_service.listar_suites()
 
-            if not reservas:
-                st.info("Nenhuma reserva cadastrada.")
+            reserva_selecionada = st.selectbox(
+                "Selecione a reserva",
+                list(opcoes_reserva.keys())
+            )
 
-            elif not suites:
-                st.info("Nenhuma suíte cadastrada.")
+            id_reserva_alvo = opcoes_reserva[reserva_selecionada]
+            vinculos_da_reserva = reserva_suite_service.listar_por_reserva(id_reserva_alvo)
+            vinculos_ativos = vinculos_da_reserva
+
+            st.divider()
+            st.markdown("**Suítes disponíveis para vincular**")
+            st.caption(
+                "A disponibilidade de cada suíte é checada na hora, de acordo com o período escolhido abaixo."
+            )
+
+            suites_selecionaveis = [
+                s for s in suites if s.status != "Manutenção"
+            ]
+
+            if not suites_selecionaveis:
+                st.warning("Não há suítes disponíveis (todas em manutenção).")
 
             else:
+                for suite in suites_selecionaveis:
+                    col1, col2, col3, col4, col4b, col5 = st.columns([1.2, 1.8, 1.8, 1.8, 1.8, 1.2])
 
-                opcoes_reserva = {
-                    f"#{r.id_reserva} — {nomes[r.id_reserva]} ({r.status})": r.id_reserva
-                    for r in reservas
-                }
+                    col1.write(f"**Nº {suite.numero}**")
+                    col2.write(f"{suite.tipo} · {suite.capacidade} pax")
 
-                reserva_selecionada = st.selectbox(
-                    "Selecione a reserva",
-                    list(opcoes_reserva.keys())
-                )
+                    diaria_ajuste = col3.number_input(
+                        "Diária (R$)",
+                        min_value=0.01,
+                        value=float(suite.valor_diaria),
+                        step=10.0,
+                        format="%.2f",
+                        key=f"ajustar_diaria_{suite.id_suite}",
+                        label_visibility="collapsed",
+                    )
 
-                id_reserva_alvo = opcoes_reserva[reserva_selecionada]
+                    data_entrada = col4.date_input(
+                        "Entrada",
+                        value=date.today(),
+                        key=f"ajustar_entrada_{suite.id_suite}",
+                        label_visibility="collapsed",
+                    )
 
-                vinculos_da_reserva = reserva_suite_service.listar_por_reserva(id_reserva_alvo)
-                vinculos_ativos = vinculos_da_reserva
+                    saida_padrao = date.today() + timedelta(days=1)
+                    if saida_padrao <= data_entrada:
+                        saida_padrao = data_entrada + timedelta(days=1)
 
-                st.divider()
-                st.markdown("**Suítes disponíveis para vincular**")
-                st.caption(
-                    "A disponibilidade de cada suíte é checada na hora, de acordo com o período escolhido abaixo."
-                )
+                    data_saida = col4b.date_input(
+                        "Saída",
+                        value=saida_padrao,
+                        min_value=data_entrada + timedelta(days=1),
+                        key=f"ajustar_saida_{suite.id_suite}",
+                        label_visibility="collapsed",
+                    )
 
-                suites_selecionaveis = [
-                    s for s in suites if s.status != "Manutenção"
-                ]
+                    if col5.button("Vincular", key=f"btn_vincular_{suite.id_suite}"):
+                        try:
+                            reserva_suite_service.vincular_reserva_suite(
+                                id_reserva=id_reserva_alvo,
+                                id_suite=suite.id_suite,
+                                data_entrada=data_entrada,
+                                data_saida=data_saida,
+                                valor_diaria=diaria_ajuste,  # <-- Envia a diária ajustada
+                            )
 
-                if not suites_selecionaveis:
-                    st.warning("Não há suítes disponíveis (todas em manutenção).")
+                            # Recalcula o valor total da reserva com a nova suíte e diária
+                            novo_valor = reserva_suite_service.calcular_valor_total_reserva(id_reserva_alvo)
+                            reserva_service.definir_valor_total(id_reserva_alvo, novo_valor)
 
-                else:
+                            st.session_state["msg_vinculo"] = "Suíte vinculada com sucesso!"
+                            st.rerun()
 
-                    for suite in suites_selecionaveis:
+                        except ValueError as e:
+                            st.error(str(e))
 
-                        col1, col2, col3, col4, col4b, col5 = st.columns([1, 2, 2, 2, 2, 1])
+                        except Exception as e:
+                            st.error(f"Erro: {e}")
 
-                        col1.write(f"**Nº {suite.numero}**")
-                        col2.write(f"{suite.tipo} · {suite.capacidade} pax")
-                        col3.write(f"R$ {suite.valor_diaria:,.2f}/dia")
+            st.divider()
+            st.markdown("**Suítes vinculadas a esta reserva**")
 
-                        data_entrada = col4.date_input(
-                            "Entrada",
-                            value=date.today(),
-                            key=f"ajustar_entrada_{suite.id_suite}",
-                            label_visibility="collapsed",
-                        )
+            if not vinculos_ativos:
+                st.info("Nenhuma suíte vinculada ainda.")
 
-                        saida_padrao = date.today() + timedelta(days=1)
+            else:
+                for vinculo in vinculos_ativos:
+                    suite = vinculo.suite
 
-                        if saida_padrao <= data_entrada:
-                            saida_padrao = data_entrada + timedelta(days=1)
+                    col1, col2, col3 = st.columns([1, 2, 3])
 
-                        data_saida = col4b.date_input(
-                            "Saída",
-                            value=saida_padrao,
-                            min_value=data_entrada + timedelta(days=1),
-                            key=f"ajustar_saida_{suite.id_suite}",
-                            label_visibility="collapsed",
-                        )
+                    col1.write(f"🛏️ Nº {suite.numero}")
+                    col2.write(f"{suite.tipo} · {suite.capacidade} pax")
+                    col3.write(
+                        f"R$ {vinculo.valor_diaria:,.2f}/dia · {vinculo.data_entrada} → {vinculo.data_saida}"
+                    )
 
-                        if col5.button("Vincular", key=f"btn_vincular_{suite.id_suite}"):
+            st.divider()
+            st.subheader("Corrigir data de entrada de um vínculo")
+            id_vinculo_corrigir = st.number_input(
+                "ID do vínculo (ReservaSuite)", min_value=1, step=1, key="id_corrigir"
+            )
+            nova_data_entrada = st.date_input(
+                "Nova data de entrada", value=date.today(), key="nova_data_entrada"
+            )
 
-                            try:
-
-                                reserva_suite_service.vincular_reserva_suite(
-                                    id_reserva=id_reserva_alvo,
-                                    id_suite=suite.id_suite,
-                                    data_entrada=data_entrada,
-                                    data_saida=data_saida,
-                                )
-
-                                # Recalcula o valor total sempre que uma suíte é
-                                # vinculada, independente do status da reserva. Assim,
-                                # mesmo "Pendente", o valor já aparece no Financeiro
-                                # global (em "Receitas pendentes de confirmação"); ao
-                                # confirmar o pagamento, esse mesmo valor passa a
-                                # contar como receita efetiva.
-                                novo_valor = reserva_suite_service.calcular_valor_total_reserva(id_reserva_alvo)
-                                reserva_service.definir_valor_total(id_reserva_alvo, novo_valor)
-
-                                st.session_state["msg_vinculo"] = "Suíte vinculada com sucesso!"
-                                st.rerun()
-
-                            except ValueError as e:
-                                st.error(str(e))
-
-                            except Exception as e:
-                                st.error(f"Erro: {e}")
-
-                st.divider()
-                st.markdown("**Suítes vinculadas a esta reserva**")
-
-                if not vinculos_ativos:
-                    st.info("Nenhuma suíte vinculada ainda.")
-
-                else:
-
-                    for vinculo in vinculos_ativos:
-
-                        suite = vinculo.suite
-
-                        col1, col2, col3 = st.columns([1, 2, 3])
-
-                        col1.write(f"🛏️ Nº {suite.numero}")
-                        col2.write(f"{suite.tipo} · {suite.capacidade} pax")
-                        col3.write(
-                            f"R$ {vinculo.valor_diaria:,.2f}/dia · {vinculo.data_entrada} → {vinculo.data_saida}"
-                        )
-
-                st.divider()
-                st.subheader("Corrigir data de entrada de um vínculo")
-                id_vinculo_corrigir = st.number_input(
-                    "ID do vínculo (ReservaSuite)", min_value=1, step=1, key="id_corrigir"
-                )
-                nova_data_entrada = st.date_input(
-                    "Nova data de entrada", value=date.today(), key="nova_data_entrada"
-                )
-
-                if st.button("Corrigir", width="stretch", key="btn_corrigir"):
-                    try:
-                        with SessionLocal() as db:
-                            ReservaSuiteService(db).corrigir_data_entrada(int(id_vinculo_corrigir), nova_data_entrada)
-                        st.success("Data de entrada corrigida com sucesso!")
-                        st.rerun()
-                    except ValueError as e:
-                        st.error(str(e))
+            if st.button("Corrigir", width="stretch", key="btn_corrigir"):
+                try:
+                    with SessionLocal() as db:
+                        ReservaSuiteService(db).corrigir_data_entrada(int(id_vinculo_corrigir), nova_data_entrada)
+                    st.success("Data de entrada corrigida com sucesso!")
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
