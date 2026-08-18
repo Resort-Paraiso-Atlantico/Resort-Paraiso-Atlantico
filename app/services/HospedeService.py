@@ -25,6 +25,10 @@ class HospedeService:
             raise ValueError("Cpf ja está cadastrado")
         if self.buscar_por_email(email):
                     raise ValueError("Email ja está sendo usado")
+        if not nome or not nome.strip():
+            raise ValueError("O nome do hóspede é obrigatório.")
+        if not telefone or not telefone.strip():
+            raise ValueError("O telefone é obrigatório.")
 
         hospede = Hospede(cpf=cpf,nome=nome,telefone=telefone,email=email,endereco=endereco)
         return self.repository.criar(hospede)
@@ -48,6 +52,10 @@ class HospedeService:
             raise ValueError("Hóspede não encontrado")
         hospede.nome = nome
         hospede.telefone = telefone
+        if email.strip() != hospede.email:
+            existente = self.repository.buscar_por_email(email.strip())
+            if existente and existente.cpf != hospede.cpf:
+                raise ValueError("Este e-mail já está sendo utilizado por outro hóspede.")
         hospede.email = email
         hospede.endereco = endereco
         return self.repository.atualizar(hospede)
