@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models.Hospede import Hospede
 from app.repositories.HospedeRepository import HospedeRepository
 from app.services.ReservaService import ReservaService
+from app.services.HospedeEventoService import HospedeEventoService
 
 class HospedeService:
 
@@ -10,6 +11,7 @@ class HospedeService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = HospedeRepository(db)
+        self.hospede_evento_service = HospedeEventoService(self.db)
 
     def criar_hospede(
         self,
@@ -64,6 +66,10 @@ class HospedeService:
             raise ValueError(
                 "Não é possível remover um hóspede com reservas cadastradas."
             )
+
+        inscricoes = self.hospede_evento_service.listar_eventos_por_hospede(cpf)
+        if inscricoes:
+            raise ValueError("Não é possível remover um hóspede com inscrições em eventos.")
         
         removido = self.repository.remover(cpf)
         if not removido:
