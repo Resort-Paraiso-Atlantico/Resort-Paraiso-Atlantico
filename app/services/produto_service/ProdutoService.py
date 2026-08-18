@@ -113,6 +113,18 @@ class ProdutoService:
         if produto is None:
             raise ValueError("Produto não encontrado.")
 
+        if produto.pedidoItem:
+            pedidos_ativos = [
+                item.pedidoCompra for item in produto.pedidoItem
+                if item.pedidoCompra and item.pedidoCompra.status != "CANCELADO"
+            ]
+            if pedidos_ativos:
+                statuses = set(p.status for p in pedidos_ativos if p.status)
+                status_str = ", ".join(statuses) if statuses else "ATIVO"
+                raise ValueError(
+                    f"Não é possível excluir o produto '{produto.nome}' pois ele está vinculado a um ou mais Pedidos de Compra ativos (Status: {status_str})."
+                )
+
         removido = self.repository.remover(id_produto)
         if removido is None:
             raise ValueError("Produto não encontrado.")

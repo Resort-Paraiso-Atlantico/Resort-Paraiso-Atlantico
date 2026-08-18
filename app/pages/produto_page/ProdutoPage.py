@@ -216,6 +216,8 @@ with SessionLocal() as db:
                         st.rerun()
                     except ValueError as e:
                         st.error(str(e))
+                    except Exception as e:
+                        st.error(f"Erro ao remover produto: {str(e)}")
         else:
             cols = st.columns(2)
             for i, produto in enumerate(produtos_filtrados):
@@ -255,3 +257,5 @@ with SessionLocal() as db:
                                 st.rerun()
                             except ValueError as e:
                                 st.error(str(e))
+                            except Exception as e:
+                                st.error(f"Erro ao remover produto: {str(e)}")
