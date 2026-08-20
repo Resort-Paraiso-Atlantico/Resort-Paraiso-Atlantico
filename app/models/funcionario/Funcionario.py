@@ -11,6 +11,7 @@ class Funcionario(Base):
     nome: Mapped[str] = mapped_column(String(100), nullable = False)
     telefone: Mapped[str] = mapped_column(String(15), nullable = False)
     email: Mapped[str] = mapped_column(String(100), nullable = False)
+    cargo: Mapped[str] = mapped_column(String(50), nullable = False)
     salario: Mapped[float] = mapped_column(Float, nullable = False)
 
     ##ordemServico = relationship("OrdemServico", back_populates = "funcionario")
