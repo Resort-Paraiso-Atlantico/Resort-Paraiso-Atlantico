@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from app.database import SessionLocal
 from app.services.BIService import BIService
@@ -17,7 +17,7 @@ def _tipo_selecionado(tipo: str) -> str | None:
     return None if tipo == "Todos" else tipo
 
 
-tab_suites, tab_eventos = st.tabs(["Suítes", "Eventos"])
+tab_suites, tab_eventos, tab_reservas = st.tabs(["Suítes", "Eventos", "Reservas"])
 
 # ── Suítes ────────────────────────────────────────────────────────────────
 with tab_suites:
@@ -146,7 +146,7 @@ with tab_eventos:
     if st.button("Listar mais procurados"):
         try:
             dt_inicio = datetime.combine(procurados_inicio, time.min) if procurados_inicio else None
-            dt_fim = datetime.combine(procurados_fim, time.min) if procurados_fim else None
+            dt_fim = datetime.combine(procurados_fim, time.min) + timedelta(days=1) if procurados_fim else None
             with SessionLocal() as db:
                 resultado = BIService(db).eventos_mais_procurados(dt_inicio, dt_fim)
             if not resultado:
@@ -170,7 +170,7 @@ with tab_eventos:
     if st.button("Calcular ocupação média"):
         try:
             dt_inicio = datetime.combine(media_inicio, time.min)
-            dt_fim = datetime.combine(media_fim, time.min)
+            dt_fim = datetime.combine(media_fim, time.min) + timedelta(days=1)
             with SessionLocal() as db:
                 taxa = BIService(db).ocupacao_media_eventos_periodo(dt_inicio, dt_fim)
             st.metric("Ocupação média", f"{taxa:.1f}%")
@@ -212,3 +212,71 @@ with tab_eventos:
             st.json(resultado)
         except Exception as e:
             st.error(f"Erro: {e}")
+
+# ── Reservas ──────────────────────────────────────────────────────────────
+with tab_reservas:
+    import pandas as pd
+
+    with SessionLocal() as db:
+        bi = BIService(db)
+        total_futuras     = bi.reservas_futuras()
+        duracao_media     = bi.duracao_media_reservas()
+        por_mes_todas     = bi.reservas_por_mes()
+        por_mes_canceladas = bi.reservas_canceladas_por_mes()
+        por_mes_concluidas = bi.reservas_concluidas_por_mes()
+
+    # ── KPIs do topo ──
+    c1, c2 = st.columns(2)
+    c1.metric("📅 Reservas Futuras", total_futuras)
+    c2.metric("🛌 Duração Média das Estadias", f"{duracao_media:.1f} dias")
+
+    st.divider()
+
+    # ── Tabela de volume por mês ──
+    st.subheader("📊 Volume de Reservas por Mês")
+
+    meses = sorted(set(list(por_mes_todas.keys()) + list(por_mes_canceladas.keys()) + list(por_mes_concluidas.keys())))
+
+    if not meses:
+        st.info("Nenhuma reserva cadastrada.")
+    else:
+        dados_tabela = []
+        for mes in meses:
+            todas      = por_mes_todas.get(mes, 0)
+            canceladas = por_mes_canceladas.get(mes, 0)
+            concluidas = por_mes_concluidas.get(mes, 0)
+            ativas     = todas - canceladas
+            taxa_cancel = round((canceladas / todas) * 100, 1) if todas > 0 else 0.0
+            dados_tabela.append({
+                "Mês":             mes,
+                "Total":           todas,
+                "Ativas":          ativas,
+                "Concluídas":      concluidas,
+                "Canceladas":      canceladas,
+                "Taxa Cancelamento (%)": taxa_cancel,
+            })
+
+        df = pd.DataFrame(dados_tabela).sort_values("Mês")
+
+        st.dataframe(
+            df,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Mês":                   st.column_config.TextColumn("Mês", width="small"),
+                "Total":                 st.column_config.NumberColumn("Total", width="small"),
+                "Ativas":                st.column_config.NumberColumn("Ativas", width="small"),
+                "Concluídas":            st.column_config.NumberColumn("Concluídas", width="small"),
+                "Canceladas":            st.column_config.NumberColumn("Canceladas", width="small"),
+                "Taxa Cancelamento (%)": st.column_config.ProgressColumn(
+                    "Cancelamento (%)", min_value=0, max_value=100, format="%.1f%%"
+                ),
+            },
+        )
+
+        st.divider()
+
+        # ── Gráfico de barras ──
+        st.subheader("📈 Evolução Mensal")
+        df_plot = df.set_index("Mês")[["Ativas", "Concluídas", "Canceladas"]]
+        st.bar_chart(df_plot)
