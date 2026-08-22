@@ -50,6 +50,8 @@ class BIService:
             raise ValueError("Data inicio e data fim devem ser preenchidos juntos, ou nenhum dos dois.")
         if data_inicio is not None and data_fim is not None and data_inicio > data_fim:
             raise ValueError("A data de inicio deve ser anterior a data final")
+        if data_inicio is not None and data_fim is not None and data_inicio == data_fim:
+            raise ValueError("O intervalo não pode ter data_inicio igual a data_fim.")
 
         resultado = self.repository.suites_mais_utilizadas(data_inicio, data_fim, tipo)
 
@@ -154,9 +156,51 @@ class BIService:
             chave = e.inicio_evento.strftime("%Y-%m")
             contagem[chave] += 1
         return dict(contagem)
+    #reservas
+    # conta as reservas
+    def reservas_por_mes(self) -> dict[str, int]:
+        return self.repository.contar_reservas_por_mes()
 
+    #conta as reservas canceladas
+    def reservas_canceladas_por_mes(self) -> dict[str, int]:
+        return self.repository.contar_reservas_por_mes(status="Cancelada")
 
+    # conta as reservas concluidas
+    def reservas_concluidas_por_mes(self) -> dict[str, int]:
+        return self.repository.contar_reservas_por_mes(status="Finalizada")
+
+    # contas as reservas pendentes ou confirmadas
+    def reservas_futuras(self) -> int:
+        return self.repository.contar_reservas_futuras()
+    
+    # calcula a duracao media das reservas
+    def duracao_media_reservas(self) -> float:
+        return self.repository.duracao_media_reservas_realizada()
+
+    
+        # % de reservas canceladas sobre o total histórico
+    def taxa_cancelamento_reservas(self) -> float:
+        canceladas, total = self.repository.taxa_cancelamento_reservas()
+        return (canceladas / total) * 100 if total > 0 else 0.0
+
+    # atxa e atraso médio de check-in em relação ao previsto
+    def taxa_atraso_checkin(self) -> dict[str, float]:
+        reservas = self.repository.reservas_com_checkin_realizado()
+        if not reservas:
+            return {"taxa_atraso": 0.0, "atraso_medio_dias": 0.0}
+
+        atrasadas = [r for r in reservas if r.checkin_realizado > r.checkin_previsto]
+        taxa = (len(atrasadas) / len(reservas)) * 100
+        atraso_medio = (
+            sum((r.checkin_realizado - r.checkin_previsto).days for r in atrasadas) / len(atrasadas)
+            if atrasadas else 0.0
+        )
+        return {"taxa_atraso": taxa, "atraso_medio_dias": atraso_medio}
+
+    # Quantas reservas estão em cada status AGORA
+    def distribuicao_reservas_por_status(self) -> dict[str, int]:
+        return self.repository.distribuicao_reservas_por_status()
 
     #chamados
     #hospedes
-    #reservas
+    

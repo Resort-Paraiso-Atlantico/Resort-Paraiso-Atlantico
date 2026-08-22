@@ -201,3 +201,62 @@ class BIRepository:
 
     def listar_eventos_com_data(self) -> list[Evento]:
         return self.db.query(Evento).filter(Evento.inicio_evento.isnot(None)).all()
+
+    # reservas
+
+    def contar_reservas_por_mes(self, status: str | None = None) -> dict[str, int]:
+        query = self.db.query(Reserva).filter(Reserva.checkin_previsto.isnot(None))
+        if status is not None:
+            query = query.filter(Reserva.status == status)
+        reservas = query.all()
+
+        contagem = defaultdict(int)
+        for r in reservas:
+            contagem[r.checkin_previsto.strftime("%Y-%m")] += 1
+        return dict(contagem)
+
+    def contar_reservas_futuras(self) -> int:
+        hoje = date.today()
+        return (
+            self.db.query(func.count(Reserva.id_reserva))
+            .filter(Reserva.checkin_previsto > hoje)
+            .filter(Reserva.status.in_(["Pendente", "Confirmada"]))
+            .scalar() or 0
+        )
+
+    def duracao_media_reservas_realizada(self) -> float:
+        reservas = (
+            self.db.query(Reserva)
+            .filter(Reserva.checkin_realizado.isnot(None))
+            .filter(Reserva.checkout_realizado.isnot(None))
+            .all()
+        )
+        if not reservas:
+            return 0.0
+        duracoes = [(r.checkout_realizado - r.checkin_realizado).days for r in reservas]
+        return sum(duracoes) / len(duracoes)
+
+    def taxa_cancelamento_reservas(self) -> tuple[int, int]:
+        total = self.db.query(func.count(Reserva.id_reserva)).scalar() or 0
+        canceladas = (
+            self.db.query(func.count(Reserva.id_reserva))
+            .filter(Reserva.status == "Cancelada")
+            .scalar() or 0
+        )
+        return canceladas, total
+
+    def reservas_com_checkin_realizado(self) -> list[Reserva]:
+        return (
+            self.db.query(Reserva)
+            .filter(Reserva.checkin_realizado.isnot(None))
+            .filter(Reserva.checkin_previsto.isnot(None))
+            .all()
+        )
+
+    def distribuicao_reservas_por_status(self) -> dict[str, int]:
+        resultado = (
+            self.db.query(Reserva.status, func.count(Reserva.id_reserva))
+            .group_by(Reserva.status)
+            .all()
+        )
+        return {status: qtd for status, qtd in resultado}
