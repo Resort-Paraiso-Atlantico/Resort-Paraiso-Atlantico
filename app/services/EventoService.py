@@ -2,12 +2,14 @@ from datetime import date, datetime
 from sqlalchemy.orm import Session
 from app.models.Evento import Evento
 from app.repositories.EventoRepository import EventoRepository
+from app.repositories.HospedeEventoRepository import HospedeEventoRepository
 
 
 class EventoService:
 
     def __init__(self, db: Session):
         self.repository = EventoRepository(db)
+        self.hospede_evento_repository = HospedeEventoRepository(db)
 
     def criar_evento(
         self,
@@ -79,6 +81,11 @@ class EventoService:
 
         if evento is None:
             raise ValueError(f"Evento #{id} não encontrado.")
+        inscritos = self.hospede_evento_repository.contar_inscritos(id)
+        if inscritos > 0:
+            raise ValueError(
+                f"Não é possível excluir: existem {inscritos} hóspede(s) inscrito(s) neste evento."
+            )
 
         return self.repository.remover_por_id(id)
 
