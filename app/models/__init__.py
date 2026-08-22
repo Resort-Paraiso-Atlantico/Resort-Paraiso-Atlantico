@@ -9,5 +9,6 @@ from app.models.pedido import PedidoCompra, PedidoItem
 from app.models.produto.Produto import Produto
 from app.models.Evento import Evento
 from app.models.HospedeEvento import HospedeEvento
+from app.models.funcionario.Funcionario import Funcionario
 from app.models.Chamado import Chamado
 # conforme for criando novos models, adiciona aqui:

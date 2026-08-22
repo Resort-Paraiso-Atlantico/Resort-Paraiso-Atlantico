@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.produto.Produto import Produto
@@ -38,6 +39,10 @@ class ProdutoRepository:
         produto = self.buscar_por_id_produto(id_produto)
         if produto is None:
             return False
-        self.session.delete(produto)
-        self.session.commit()
-        return True
+        try:
+            self.session.delete(produto)
+            self.session.commit()
+            return True
+        except IntegrityError:
+            self.session.rollback()
+            raise ValueError("Não é possível excluir este produto pois existem registros de pedidos de compra ou movimentações vinculados a ele.")
