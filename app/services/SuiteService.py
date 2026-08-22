@@ -29,7 +29,6 @@ class SuiteService:
         capacidade=capacidade,
         valor_diaria=valor_diaria,
         status=status,
-        ultima_limpeza=datetime.now(),
         )
         
         return self.repository.criar(suite)
@@ -47,8 +46,6 @@ class SuiteService:
             raise ValueError("Suíte não encontrada")
         
         suite.status = novo_status
-        if novo_status == "Disponível" and suite.status == "Limpeza":
-            suite.ultima_limpeza = datetime.now()
             
         return self.repository.atualizar(suite)
 
@@ -74,13 +71,6 @@ class SuiteService:
         suite.status = "Limpeza"
         return self.repository.atualizar(suite)
 
-    def registrar_limpeza(self, id_suite: int) -> Suite:
-        suite = self.repository.buscar_por_id(id_suite)
-        if suite is None:
-            raise ValueError("Suíte não encontrada")
-        suite.ultima_limpeza = datetime.now()
-        suite.status = "Disponível"
-        return self.repository.atualizar(suite)
 
     def listar_disponiveis_no_periodo(self, data_entrada: date, data_saida: date) -> list[Suite]:
         suites = self.repository.listar_todas()

@@ -13,7 +13,7 @@ class ReservaSuiteService:
         self.suite_repository = SuiteRepository(db)
         self.reserva_repository = ReservaRepository(db)
 
-    def vincular_reserva_suite(self,id_reserva:int,id_suite:int,data_entrada:date,data_saida:date):
+    def vincular_reserva_suite(self,id_reserva:int,id_suite:int,data_entrada:date,data_saida:date,valor_diaria:float | None):
         if id_reserva is None:
             raise ValueError("Deve ter id da reserva.")
 
@@ -34,6 +34,9 @@ class ReservaSuiteService:
         if not suite:
             raise ValueError(f"Suíte #{id_suite} não encontrada.")
 
+        if valor_diaria == None:
+                    valor_diaria=suite.valor_diaria
+
         if suite.status == "Manutenção":
             raise ValueError("Suíte está em manutenção.")
         if suite.status == "Limpeza":
@@ -46,7 +49,7 @@ class ReservaSuiteService:
             id_reserva = id_reserva,
             id_suite = id_suite,
             data_entrada = data_entrada,
-            valor_diaria=suite.valor_diaria,
+            valor_diaria=valor_diaria,
             data_saida= data_saida
 
         )
@@ -74,6 +77,16 @@ class ReservaSuiteService:
             diarias = 1
 
         return diarias * reserva_suite.valor_diaria
+
+    def atualizar_valor_diaria(self,id:int,valor_diaria:float):
+        reserva_suite = self.repository.buscar_por_id(id)
+
+        if reserva_suite is None:
+            raise ValueError("Vínculo Reserva-Suite não encontrado.")
+
+        reserva_suite.valor_diaria = valor_diaria
+
+        return self.repository.atualizar(reserva_suite)
 
     def calcular_valor_total_reserva(self, id_reserva: int) -> float:
         """Soma o valor de todas as suítes (vínculos) já ligadas a uma reserva."""

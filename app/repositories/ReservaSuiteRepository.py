@@ -39,12 +39,12 @@ class ReservaSuiteRepository:
         )
 
     def existe_conflito(
-    self,
-    id_suite: int,
-    data_entrada: date,
-    data_saida: date,
-    excluir_id: int | None = None,
-) -> bool:
+            self,
+            id_suite: int,
+            data_entrada: date,
+            data_saida: date,
+            excluir_id: int | None = None,
+        ) -> bool:
         query = self.db.query(ReservaSuite).filter(ReservaSuite.id_suite == id_suite)
         if excluir_id is not None:
             query = query.filter(ReservaSuite.id != excluir_id)

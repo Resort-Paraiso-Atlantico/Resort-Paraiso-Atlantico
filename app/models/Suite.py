@@ -11,7 +11,7 @@ class Suite(Base):
     capacidade: Mapped[int] = mapped_column(Integer,nullable=False)
     valor_diaria: Mapped[float] = mapped_column(Float,nullable=False)
     status: Mapped[str] = mapped_column(String,nullable=False)
-    ultima_limpeza: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     reserva_suites: Mapped[list["ReservaSuite"]] = relationship(back_populates="suite")
+    chamados: Mapped[list["Chamado"]] = relationship(back_populates="suite")
     
