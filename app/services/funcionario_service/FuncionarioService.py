@@ -39,7 +39,7 @@ class FuncionarioService:
         return self.repository.buscar_por_cpf(cpf)
     
     def listar_funcionarios(self):
-        return self.repository.listar_funcionarios
+        return self.repository.listar_todos()
 
     def atualizar_funcionario(
         self,
