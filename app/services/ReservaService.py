@@ -167,7 +167,6 @@ class ReservaService:
             self.reserva_suite_repository.atualizar(vinculo)
 
             suite = vinculo.suite or self.suite_repository.buscar_por_id(vinculo.id_suite)
-            suite.status = "Limpeza"
             self.suite_repository.atualizar(suite)
 
         reserva.status = "Finalizada"

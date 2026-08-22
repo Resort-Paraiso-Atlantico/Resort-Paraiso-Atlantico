@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models.Hospede import Hospede
 from app.repositories.HospedeRepository import HospedeRepository
 from app.services.ReservaService import ReservaService
+from app.services.HospedeEventoService import HospedeEventoService
 
 class HospedeService:
 
@@ -10,6 +11,7 @@ class HospedeService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = HospedeRepository(db)
+        self.hospede_evento_service = HospedeEventoService(self.db)
 
     def criar_hospede(
         self,
@@ -23,6 +25,10 @@ class HospedeService:
             raise ValueError("Cpf ja está cadastrado")
         if self.buscar_por_email(email):
                     raise ValueError("Email ja está sendo usado")
+        if not nome or not nome.strip():
+            raise ValueError("O nome do hóspede é obrigatório.")
+        if not telefone or not telefone.strip():
+            raise ValueError("O telefone é obrigatório.")
 
         hospede = Hospede(cpf=cpf,nome=nome,telefone=telefone,email=email,endereco=endereco)
         return self.repository.criar(hospede)
@@ -46,6 +52,10 @@ class HospedeService:
             raise ValueError("Hóspede não encontrado")
         hospede.nome = nome
         hospede.telefone = telefone
+        if email.strip() != hospede.email:
+            existente = self.repository.buscar_por_email(email.strip())
+            if existente and existente.cpf != hospede.cpf:
+                raise ValueError("Este e-mail já está sendo utilizado por outro hóspede.")
         hospede.email = email
         hospede.endereco = endereco
         return self.repository.atualizar(hospede)
@@ -64,6 +74,10 @@ class HospedeService:
             raise ValueError(
                 "Não é possível remover um hóspede com reservas cadastradas."
             )
+
+        inscricoes = self.hospede_evento_service.listar_eventos_por_hospede(cpf)
+        if inscricoes:
+            raise ValueError("Não é possível remover um hóspede com inscrições em eventos.")
         
         removido = self.repository.remover(cpf)
         if not removido:
