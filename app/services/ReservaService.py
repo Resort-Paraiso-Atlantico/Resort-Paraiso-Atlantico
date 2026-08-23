@@ -48,6 +48,8 @@ class ReservaService:
             raise ValueError(f"Reserva #{id_reserva} não encontrada.")
         if reserva.status == "Cancelada":
             raise ValueError("Reserva já está cancelada.")
+        if reserva.status == "Finalizada":
+            raise ValueError("Não é possível cancelar uma reserva já finalizada.")
         reserva.status = "Cancelada"
         return self.repository.atualizar(reserva)
 
