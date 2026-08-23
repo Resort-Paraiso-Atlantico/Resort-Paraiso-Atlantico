@@ -1,6 +1,8 @@
 # BIRepository.py
 from collections import defaultdict
 from datetime import date, timedelta
+from app.models.Chamado import Chamado
+from app.models.Hospede import Hospede
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
@@ -260,3 +262,80 @@ class BIRepository:
             .all()
         )
         return {status: qtd for status, qtd in resultado}
+
+    # chamados
+    
+    def chamados_concluidos(self) -> list[Chamado]:
+        return (
+            self.db.query(Chamado)
+            .filter(Chamado.status == "Concluido")
+            .filter(Chamado.data_conclusao.isnot(None))
+            .all()
+        )
+
+    def chamados_por_tipo_suite(self) -> dict[str, int]:
+        resultado = (
+            self.db.query(Suite.tipo, func.count(Chamado.id_chamado))
+            .join(Chamado, Chamado.id_suite == Suite.id_suite)
+            .group_by(Suite.tipo)
+            .all()
+        )
+        return {tipo: qtd for tipo, qtd in resultado}
+
+    def quantidade_por_tipo_chamado(self) -> dict[str, int]:
+        resultado = (
+            self.db.query(Chamado.tipo, func.count(Chamado.id_chamado))
+            .group_by(Chamado.tipo)
+            .all()
+        )
+        return {tipo: qtd for tipo, qtd in resultado}
+
+    def distribuicao_chamados_por_status(self) -> dict[str, int]:
+        resultado = (
+            self.db.query(Chamado.status, func.count(Chamado.id_chamado))
+            .group_by(Chamado.status)
+            .all()
+        )
+        return {status: qtd for status, qtd in resultado}
+
+    def distribuicao_chamados_por_prioridade(self) -> dict[str, int]:
+        resultado = (
+            self.db.query(Chamado.prioridade, func.count(Chamado.id_chamado))
+            .group_by(Chamado.prioridade)
+            .all()
+        )
+        return {prioridade: qtd for prioridade, qtd in resultado}
+
+    def taxa_cancelamento_chamados(self) -> tuple[int, int]:
+        total = self.db.query(func.count(Chamado.id_chamado)).scalar() or 0
+        cancelados = (
+            self.db.query(func.count(Chamado.id_chamado))
+            .filter(Chamado.status == "Cancelado")
+            .scalar() or 0
+        )
+        return cancelados, total
+
+    def suites_mais_chamados(self, limite: int = 10) -> list[tuple[Suite, int]]:
+        return (
+            self.db.query(Suite, func.count(Chamado.id_chamado).label("qtd_chamados"))
+            .join(Chamado, Chamado.id_suite == Suite.id_suite)
+            .group_by(Suite.id_suite)
+            .order_by(func.count(Chamado.id_chamado).desc())
+            .limit(limite)
+            .all()
+        )
+
+    # ---------- hóspedes ----------
+
+    def listar_hospedes_com_cadastro(self) -> list[Hospede]:
+        return self.db.query(Hospede).filter(Hospede.data_cadastro.isnot(None)).all()
+
+    def hospedes_com_multiplas_reservas(self) -> list[tuple[Hospede, int]]:
+        return (
+            self.db.query(Hospede, func.count(Reserva.id_reserva).label("qtd_reservas"))
+            .join(Reserva, Reserva.cpf_hospede == Hospede.cpf)
+            .group_by(Hospede.cpf)
+            .having(func.count(Reserva.id_reserva) > 1)
+            .order_by(func.count(Reserva.id_reserva).desc())
+            .all()
+        )
