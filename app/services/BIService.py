@@ -29,18 +29,21 @@ class BIService:
 
     # ── KPIs Executivos & Hospitalidade ───────────────────────────────────────
 
-    def obter_kpis_executivos(self) -> KPIExecutivos:
-        receita, qtd_res = self.repository.receita_bruta_total()
-        despesas, qtd_ped = self.repository.despesas_totais()
+    def obter_kpis_executivos(self, data_inicio: date | None = None, data_fim: date | None = None) -> KPIExecutivos:
+        receita, qtd_res = self.repository.receita_bruta_total(data_inicio, data_fim)
+        despesas, qtd_ped = self.repository.despesas_totais(data_inicio, data_fim)
         saldo = receita - despesas
         margem = (saldo / receita * 100.0) if receita > 0 else 0.0
         ticket_medio = (receita / qtd_res) if qtd_res > 0 else 0.0
 
-        ocup_hoje = self.suites_ocupadas_hoje()
+        if data_inicio is not None and data_fim is not None:
+            ocup_taxa = self.suites_ocupadas_periodo(data_inicio, data_fim)
+        else:
+            ocup_taxa = self.suites_ocupadas_hoje()
 
         # ADR: Diária média baseada no valor total de diárias divididas pelas reservas válidas
         adr = ticket_medio
-        revpar = (ocup_hoje / 100.0) * adr
+        revpar = (ocup_taxa / 100.0) * adr
 
         projecao = self.repository.receita_projetada_futura()
 
@@ -50,7 +53,7 @@ class BIService:
             saldo_liquido=saldo,
             margem_lucro=margem,
             ticket_medio_reserva=ticket_medio,
-            ocupacao_hoje=ocup_hoje,
+            ocupacao_hoje=ocup_taxa,
             adr=adr,
             revpar=revpar,
             receita_projetada=projecao,
@@ -113,8 +116,8 @@ class BIService:
 
         return alertas
 
-    def obter_metas_gerenciais(self) -> dict[str, dict[str, float | str]]:
-        kpis = self.obter_kpis_executivos()
+    def obter_metas_gerenciais(self, data_inicio: date | None = None, data_fim: date | None = None) -> dict[str, dict[str, float | str]]:
+        kpis = self.obter_kpis_executivos(data_inicio, data_fim)
         
         meta_ocup = 75.0
         status_ocup = "🟢 Meta Atingida" if kpis.ocupacao_hoje >= meta_ocup else "🟡 Abaixo da Meta" if kpis.ocupacao_hoje >= 50 else "🔴 Crítico"
