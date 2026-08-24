@@ -4,6 +4,8 @@ from app.models.Reserva import Reserva
 from app.repositories.ReservaRepository import ReservaRepository
 from app.repositories.ReservaSuiteRepository import ReservaSuiteRepository
 from app.repositories.SuiteRepository import SuiteRepository
+from app.services.ChamadoService import ChamadoService
+import random
 
 
 class ReservaService:
@@ -13,6 +15,7 @@ class ReservaService:
         self.repository = ReservaRepository(db)
         self.reserva_suite_repository = ReservaSuiteRepository(db)
         self.suite_repository = SuiteRepository(db)
+        self.chamado_service = ChamadoService(db)
         
 
     def criar_reserva(
@@ -170,6 +173,22 @@ class ReservaService:
 
             suite = vinculo.suite or self.suite_repository.buscar_por_id(vinculo.id_suite)
             self.suite_repository.atualizar(suite)
+
+            # Ao liberar a suíte, abre chamado automático de limpeza (95%) ou manutenção (5%)
+            tipo_chamado = "Manutenção" if random.random() < 0.05 else "Limpeza"
+            if tipo_chamado == "Manutenção":
+                descricao = "Verificação de manutenção solicitada automaticamente após check-out."
+                prioridade = "Média"
+            else:
+                descricao = "Limpeza de rotina solicitada automaticamente após check-out."
+                prioridade = "Baixa"
+
+            self.chamado_service.abrir_chamado(
+                id_suite=vinculo.id_suite,
+                tipo=tipo_chamado,
+                prioridade=prioridade,
+                descricao=descricao,
+            )
 
         reserva.status = "Finalizada"
         reserva.checkout_realizado = hoje

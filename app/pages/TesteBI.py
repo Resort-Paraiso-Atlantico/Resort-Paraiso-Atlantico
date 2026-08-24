@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from datetime import date, datetime, time, timedelta
 
 from app.database import SessionLocal
@@ -17,7 +18,18 @@ def _tipo_selecionado(tipo: str) -> str | None:
     return None if tipo == "Todos" else tipo
 
 
-tab_suites, tab_eventos, tab_reservas = st.tabs(["Suítes", "Eventos", "Reservas"])
+def _bar_chart(resultado: dict, index_label: str, value_label: str):
+    """Renderiza um dict {chave: valor} como gráfico de barras, ordenado pela chave."""
+    if not resultado:
+        st.info("Nenhum resultado.")
+        return
+    df = pd.DataFrame(sorted(resultado.items()), columns=[index_label, value_label]).set_index(index_label)
+    st.bar_chart(df)
+
+
+tab_suites, tab_eventos, tab_reservas, tab_chamados, tab_hospedes = st.tabs(
+    ["Suítes", "Eventos", "Reservas", "Chamados", "Hóspedes"]
+)
 
 # ── Suítes ────────────────────────────────────────────────────────────────
 with tab_suites:
@@ -71,9 +83,11 @@ with tab_suites:
                 )
             if not resultado:
                 st.info("Nenhum resultado.")
-            for item in resultado:
-                s = item["suite"]
-                st.write(f"Suíte nº{s.numero} ({s.tipo}) — {item['qtd_reservas']} reservas")
+            else:
+                df = pd.DataFrame(
+                    [{"Suíte": r["suite"].numero, "Tipo": r["suite"].tipo, "Reservas": r["qtd_reservas"]} for r in resultado]
+                )
+                st.dataframe(df, use_container_width=True, hide_index=True)
         except ValueError as e:
             st.warning(str(e))
         except Exception as e:
@@ -88,7 +102,7 @@ with tab_suites:
             try:
                 with SessionLocal() as db:
                     resultado = BIService(db).distribuicao_por_status()
-                st.json(resultado)
+                _bar_chart(resultado, "Status", "Quantidade")
             except Exception as e:
                 st.error(f"Erro: {e}")
 
@@ -98,7 +112,7 @@ with tab_suites:
             try:
                 with SessionLocal() as db:
                     resultado = BIService(db).composicao_por_tipo()
-                st.json(resultado)
+                _bar_chart(resultado, "Tipo", "Quantidade")
             except Exception as e:
                 st.error(f"Erro: {e}")
 
@@ -114,8 +128,7 @@ with tab_suites:
         try:
             with SessionLocal() as db:
                 resultado = BIService(db).ocupacao_por_tipo(tipo_ocup_inicio, tipo_ocup_fim)
-            for tipo, taxa in resultado.items():
-                st.write(f"{tipo}: {taxa:.1f}%")
+            _bar_chart(resultado, "Tipo", "Ocupação (%)")
         except ValueError as e:
             st.warning(str(e))
         except Exception as e:
@@ -151,9 +164,11 @@ with tab_eventos:
                 resultado = BIService(db).eventos_mais_procurados(dt_inicio, dt_fim)
             if not resultado:
                 st.info("Nenhum resultado.")
-            for item in resultado:
-                ev = item["evento"]
-                st.write(f"{ev.nome_evento} — {item['qtd_inscricoes']} inscrições")
+            else:
+                df = pd.DataFrame(
+                    [{"Evento": r["evento"].nome_evento, "Inscrições": r["qtd_inscricoes"]} for r in resultado]
+                )
+                st.dataframe(df, use_container_width=True, hide_index=True)
         except ValueError as e:
             st.warning(str(e))
         except Exception as e:
@@ -198,7 +213,7 @@ with tab_eventos:
             try:
                 with SessionLocal() as db:
                     resultado = BIService(db).distribuicao_eventos_por_status()
-                st.json(resultado)
+                _bar_chart(resultado, "Status", "Quantidade")
             except Exception as e:
                 st.error(f"Erro: {e}")
 
@@ -209,74 +224,226 @@ with tab_eventos:
         try:
             with SessionLocal() as db:
                 resultado = BIService(db).eventos_por_mes()
-            st.json(resultado)
+            _bar_chart(resultado, "Mês", "Eventos")
         except Exception as e:
             st.error(f"Erro: {e}")
 
-# ── Reservas ──────────────────────────────────────────────────────────────
+# ── Reservas ─────────────────────────────────────────────────────────────
 with tab_reservas:
-    import pandas as pd
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.subheader("Reservas por mês")
+        if st.button("Ver reservas por mês"):
+            try:
+                with SessionLocal() as db:
+                    resultado = BIService(db).reservas_por_mes()
+                _bar_chart(resultado, "Mês", "Reservas")
+            except Exception as e:
+                st.error(f"Erro: {e}")
 
-    with SessionLocal() as db:
-        bi = BIService(db)
-        total_futuras     = bi.reservas_futuras()
-        duracao_media     = bi.duracao_media_reservas()
-        por_mes_todas     = bi.reservas_por_mes()
-        por_mes_canceladas = bi.reservas_canceladas_por_mes()
-        por_mes_concluidas = bi.reservas_concluidas_por_mes()
+    with col2:
+        st.subheader("Canceladas por mês")
+        if st.button("Ver canceladas por mês"):
+            try:
+                with SessionLocal() as db:
+                    resultado = BIService(db).reservas_canceladas_por_mes()
+                _bar_chart(resultado, "Mês", "Canceladas")
+            except Exception as e:
+                st.error(f"Erro: {e}")
 
-    # ── KPIs do topo ──
-    c1, c2 = st.columns(2)
-    c1.metric("📅 Reservas Futuras", total_futuras)
-    c2.metric("🛌 Duração Média das Estadias", f"{duracao_media:.1f} dias")
+    with col3:
+        st.subheader("Concluídas por mês")
+        if st.button("Ver concluídas por mês"):
+            try:
+                with SessionLocal() as db:
+                    resultado = BIService(db).reservas_concluidas_por_mes()
+                _bar_chart(resultado, "Mês", "Concluídas")
+            except Exception as e:
+                st.error(f"Erro: {e}")
 
     st.divider()
 
-    # ── Tabela de volume por mês ──
-    st.subheader("📊 Volume de Reservas por Mês")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.subheader("Reservas futuras")
+        if st.button("Calcular reservas futuras"):
+            try:
+                with SessionLocal() as db:
+                    qtd = BIService(db).reservas_futuras()
+                st.metric("Reservas futuras", qtd)
+            except Exception as e:
+                st.error(f"Erro: {e}")
 
-    meses = sorted(set(list(por_mes_todas.keys()) + list(por_mes_canceladas.keys()) + list(por_mes_concluidas.keys())))
+    with col2:
+        st.subheader("Duração média")
+        if st.button("Calcular duração média"):
+            try:
+                with SessionLocal() as db:
+                    dias = BIService(db).duracao_media_reservas()
+                st.metric("Duração média", f"{dias:.1f} dias")
+            except Exception as e:
+                st.error(f"Erro: {e}")
 
-    if not meses:
-        st.info("Nenhuma reserva cadastrada.")
-    else:
-        dados_tabela = []
-        for mes in meses:
-            todas      = por_mes_todas.get(mes, 0)
-            canceladas = por_mes_canceladas.get(mes, 0)
-            concluidas = por_mes_concluidas.get(mes, 0)
-            ativas     = todas - canceladas
-            taxa_cancel = round((canceladas / todas) * 100, 1) if todas > 0 else 0.0
-            dados_tabela.append({
-                "Mês":             mes,
-                "Total":           todas,
-                "Ativas":          ativas,
-                "Concluídas":      concluidas,
-                "Canceladas":      canceladas,
-                "Taxa Cancelamento (%)": taxa_cancel,
-            })
+    with col3:
+        st.subheader("Taxa de cancelamento")
+        if st.button("Calcular taxa de cancelamento"):
+            try:
+                with SessionLocal() as db:
+                    taxa = BIService(db).taxa_cancelamento_reservas()
+                st.metric("Cancelamento", f"{taxa:.1f}%")
+            except Exception as e:
+                st.error(f"Erro: {e}")
 
-        df = pd.DataFrame(dados_tabela).sort_values("Mês")
+    st.divider()
 
-        st.dataframe(
-            df,
-            hide_index=True,
-            use_container_width=True,
-            column_config={
-                "Mês":                   st.column_config.TextColumn("Mês", width="small"),
-                "Total":                 st.column_config.NumberColumn("Total", width="small"),
-                "Ativas":                st.column_config.NumberColumn("Ativas", width="small"),
-                "Concluídas":            st.column_config.NumberColumn("Concluídas", width="small"),
-                "Canceladas":            st.column_config.NumberColumn("Canceladas", width="small"),
-                "Taxa Cancelamento (%)": st.column_config.ProgressColumn(
-                    "Cancelamento (%)", min_value=0, max_value=100, format="%.1f%%"
-                ),
-            },
-        )
+    st.subheader("Atraso no check-in")
+    if st.button("Calcular atraso no check-in"):
+        try:
+            with SessionLocal() as db:
+                resultado = BIService(db).taxa_atraso_checkin()
+            col1, col2 = st.columns(2)
+            col1.metric("Taxa de atraso", f"{resultado['taxa_atraso']:.1f}%")
+            col2.metric("Atraso médio", f"{resultado['atraso_medio_dias']:.1f} dias")
+        except Exception as e:
+            st.error(f"Erro: {e}")
 
-        st.divider()
+    st.divider()
 
-        # ── Gráfico de barras ──
-        st.subheader("📈 Evolução Mensal")
-        df_plot = df.set_index("Mês")[["Ativas", "Concluídas", "Canceladas"]]
-        st.bar_chart(df_plot)
+    st.subheader("Distribuição por status")
+    if st.button("Ver reservas por status"):
+        try:
+            with SessionLocal() as db:
+                resultado = BIService(db).distribuicao_reservas_por_status()
+            _bar_chart(resultado, "Status", "Quantidade")
+        except Exception as e:
+            st.error(f"Erro: {e}")
+
+# ── Chamados ─────────────────────────────────────────────────────────────
+with tab_chamados:
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Tempo médio de conclusão")
+        if st.button("Calcular tempo médio de conclusão"):
+            try:
+                with SessionLocal() as db:
+                    dias = BIService(db).tempo_medio_conclusao_chamado()
+                st.metric("Tempo médio", f"{dias:.1f} dias")
+            except Exception as e:
+                st.error(f"Erro: {e}")
+
+    with col2:
+        st.subheader("Taxa de cancelamento")
+        if st.button("Calcular taxa de cancelamento de chamados"):
+            try:
+                with SessionLocal() as db:
+                    taxa = BIService(db).taxa_cancelamento_chamados()
+                st.metric("Cancelamento", f"{taxa:.1f}%")
+            except Exception as e:
+                st.error(f"Erro: {e}")
+
+    st.divider()
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Chamados por tipo de suíte")
+        if st.button("Ver chamados por tipo de suíte"):
+            try:
+                with SessionLocal() as db:
+                    resultado = BIService(db).chamados_por_tipo_suite()
+                _bar_chart(resultado, "Tipo de suíte", "Chamados")
+            except Exception as e:
+                st.error(f"Erro: {e}")
+
+    with col2:
+        st.subheader("Quantidade por tipo de chamado")
+        if st.button("Ver quantidade por tipo de chamado"):
+            try:
+                with SessionLocal() as db:
+                    resultado = BIService(db).quantidade_por_tipo_chamado()
+                _bar_chart(resultado, "Tipo", "Quantidade")
+            except Exception as e:
+                st.error(f"Erro: {e}")
+
+    st.divider()
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Distribuição por status")
+        if st.button("Ver chamados por status"):
+            try:
+                with SessionLocal() as db:
+                    resultado = BIService(db).distribuicao_chamados_por_status()
+                _bar_chart(resultado, "Status", "Quantidade")
+            except Exception as e:
+                st.error(f"Erro: {e}")
+
+    with col2:
+        st.subheader("Distribuição por prioridade")
+        if st.button("Ver chamados por prioridade"):
+            try:
+                with SessionLocal() as db:
+                    resultado = BIService(db).distribuicao_chamados_por_prioridade()
+                _bar_chart(resultado, "Prioridade", "Quantidade")
+            except Exception as e:
+                st.error(f"Erro: {e}")
+
+    st.divider()
+
+    st.subheader("Suítes com mais chamados")
+    limite_chamados = st.number_input("Limite de suítes", min_value=1, max_value=50, value=10, key="limite_chamados")
+    if st.button("Listar suítes com mais chamados"):
+        try:
+            with SessionLocal() as db:
+                resultado = BIService(db).suites_mais_chamados(int(limite_chamados))
+            if not resultado:
+                st.info("Nenhum resultado.")
+            else:
+                df = pd.DataFrame(
+                    [{"Suíte": r["suite"].numero, "Tipo": r["suite"].tipo, "Chamados": r["qtd_chamados"]} for r in resultado]
+                )
+                st.dataframe(df, use_container_width=True, hide_index=True)
+        except Exception as e:
+            st.error(f"Erro: {e}")
+
+# ── Hóspedes ─────────────────────────────────────────────────────────────
+with tab_hospedes:
+    st.subheader("Cadastros por mês")
+    if st.button("Ver cadastros por mês"):
+        try:
+            with SessionLocal() as db:
+                resultado = BIService(db).cadastros_hospedes_por_mes()
+            _bar_chart(resultado, "Mês", "Cadastros")
+        except Exception as e:
+            st.error(f"Erro: {e}")
+
+    st.divider()
+
+    st.subheader("Mês com mais cadastros")
+    if st.button("Calcular mês com mais cadastros"):
+        try:
+            with SessionLocal() as db:
+                resultado = BIService(db).mes_com_mais_cadastros()
+            if resultado is None:
+                st.info("Nenhum resultado.")
+            else:
+                mes, qtd = resultado
+                st.metric("Mês com mais cadastros", mes, delta=f"{qtd} cadastros")
+        except Exception as e:
+            st.error(f"Erro: {e}")
+
+    st.divider()
+
+    st.subheader("Hóspedes recorrentes")
+    if st.button("Listar hóspedes recorrentes"):
+        try:
+            with SessionLocal() as db:
+                resultado = BIService(db).hospedes_recorrentes()
+            if not resultado:
+                st.info("Nenhum resultado.")
+            else:
+                df = pd.DataFrame(
+                    [{"Hóspede": r["hospede"].nome, "Reservas": r["qtd_reservas"]} for r in resultado]
+                )
+                st.dataframe(df, use_container_width=True, hide_index=True)
+        except Exception as e:
+            st.error(f"Erro: {e}")

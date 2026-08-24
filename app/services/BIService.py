@@ -202,5 +202,62 @@ class BIService:
         return self.repository.distribuicao_reservas_por_status()
 
     #chamados
-    #hospedes
+
+
+    # Tempo médio de conclusão de chamado, em dias
+    def tempo_medio_conclusao_chamado(self) -> float:
+        chamados = self.repository.chamados_concluidos()
+        if not chamados:
+            return 0.0
+        duracoes = [(c.data_conclusao - c.data_abertura).days for c in chamados]
+        return sum(duracoes) / len(duracoes)
+
+    # Chamados agrupados pelo tipo de suíte de origem
+    def chamados_por_tipo_suite(self) -> dict[str, int]:
+        return self.repository.chamados_por_tipo_suite()
+
+    # Quantidade total de chamados por tipo (Limpeza/Manutenção)
+    def quantidade_por_tipo_chamado(self) -> dict[str, int]:
+        return self.repository.quantidade_por_tipo_chamado()
+
+    # Quantos chamados estão em cada status agora
+    def distribuicao_chamados_por_status(self) -> dict[str, int]:
+        return self.repository.distribuicao_chamados_por_status()
+
+    # Quantos chamados existem em cada prioridade
+    def distribuicao_chamados_por_prioridade(self) -> dict[str, int]:
+        return self.repository.distribuicao_chamados_por_prioridade()
+
+    # % de chamados cancelados sobre o total histórico
+    def taxa_cancelamento_chamados(self) -> float:
+        cancelados, total = self.repository.taxa_cancelamento_chamados()
+        return (cancelados / total) * 100 if total > 0 else 0.0
+
+    # Ranking de suítes com mais chamados abertos ao longo do tempo
+    def suites_mais_chamados(self, limite: int = 10):
+        resultado = self.repository.suites_mais_chamados(limite)
+        return [{"suite": suite, "qtd_chamados": qtd} for suite, qtd in resultado]
+
+    # ---------- hóspedes ----------
+
+    # Cadastros de hóspedes por mês
+    def cadastros_hospedes_por_mes(self) -> dict[str, int]:
+        hospedes = self.repository.listar_hospedes_com_cadastro()
+        contagem = defaultdict(int)
+        for h in hospedes:
+            contagem[h.data_cadastro.strftime("%Y-%m")] += 1
+        return dict(contagem)
+
+    # Mês com mais cadastros de hóspedes
+    def mes_com_mais_cadastros(self) -> tuple[str, int] | None:
+        por_mes = self.cadastros_hospedes_por_mes()
+        if not por_mes:
+            return None
+        return max(por_mes.items(), key=lambda item: item[1])
+
+    # Hóspedes com mais de uma reserva (recorrentes)
+    def hospedes_recorrentes(self):
+        resultado = self.repository.hospedes_com_multiplas_reservas()
+        return [{"hospede": hospede, "qtd_reservas": qtd} for hospede, qtd in resultado]
+    
     
