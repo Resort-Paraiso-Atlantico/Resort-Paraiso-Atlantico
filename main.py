@@ -146,7 +146,7 @@ pg = st.navigation([
     st.Page("app/pages/produto_page/ProdutoPage.py", title="Produtos", icon="📦"),
     st.Page("app/pages/pedido_page/PedidoCompraPage.py", title="Pedidos de Compra", icon="🛒"),
     st.Page("app/pages/estoque_page/EstoquePage.py", title="Estoque", icon="🏭"),
-    st.Page("app/pages/TesteBI.py", title="BI", icon="🧮")
+    st.Page("app/pages/TesteBI.py", title="Business Intelligence (BI)", icon="📊")
 ])
 
 pg.run()
