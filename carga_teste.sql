@@ -1,5 +1,5 @@
 -- Massa de dados complementar alinhada aos models SQLAlchemy.
--- Execute depois de schema.sql e dados.sql, se eles forem usados.
+-- Execute depois que as tabelas existirem e, opcionalmente, depois de dados.sql.
 
 BEGIN;
 
@@ -56,27 +56,6 @@ INSERT INTO eventos (id, nome_evento, descricao, data_criacao, inicio_evento, fi
 (113, 'Aqua Fitness', 'Exercicios aquaticos na piscina principal', '2026-02-01 11:00:00', '2026-09-03 16:00:00', '2026-09-03 17:00:00', 28, 'Agendado'),
 (114, 'Jantar Harmonizado', 'Menu degustacao com vinhos selecionados', '2026-02-01 11:10:00', '2026-09-04 20:00:00', '2026-09-04 23:00:00', 40, 'Agendado'),
 (115, 'Cafe com Musica', 'Cafe da manha especial com voz e violao', '2026-02-01 11:20:00', '2026-09-05 08:00:00', '2026-09-05 10:00:00', 70, 'Agendado')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO hospede_evento (id, cpf_hospede, id_evento, data_inscricao) VALUES
-(101, '10123456789', 101, '2026-08-20 10:00:00'),
-(102, '10234567890', 101, '2026-08-20 10:05:00'),
-(103, '10345678901', 102, '2026-08-20 10:10:00'),
-(104, '10456789012', 103, '2026-08-20 10:15:00'),
-(105, '10567890123', 104, '2026-08-20 10:20:00'),
-(106, '10678901234', 105, '2026-08-20 10:25:00'),
-(107, '10789012345', 106, '2026-08-20 10:30:00'),
-(108, '10890123456', 107, '2026-08-20 10:35:00'),
-(109, '10901234567', 108, '2026-08-20 10:40:00'),
-(110, '11012345678', 109, '2026-08-20 10:45:00'),
-(111, '11123456789', 110, '2026-08-20 10:50:00'),
-(112, '11234567890', 111, '2026-08-20 10:55:00'),
-(113, '11345678901', 112, '2026-08-20 11:00:00'),
-(114, '11456789012', 113, '2026-08-20 11:05:00'),
-(115, '11567890123', 114, '2026-08-20 11:10:00'),
-(116, '10123456789', 105, '2026-08-20 11:15:00'),
-(117, '10345678901', 108, '2026-08-20 11:20:00'),
-(118, '10789012345', 111, '2026-08-20 11:25:00')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO produto
