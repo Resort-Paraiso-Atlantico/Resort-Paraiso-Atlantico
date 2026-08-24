@@ -186,7 +186,7 @@ def _plot_ranking_bar(df_data: pd.DataFrame, x_col: str, y_col: str, color_hex: 
         plot_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=10, r=20, t=10, b=10),
         xaxis=dict(showgrid=True, gridcolor="#F1F5F9", title=""),
-        yaxis=dict(title="", autorange="reversed", tickfont=dict(size=11, color="#1E293B")),
+        yaxis=dict(title="", tickfont=dict(size=11, color="#1E293B")),
         height=260,
     )
 
