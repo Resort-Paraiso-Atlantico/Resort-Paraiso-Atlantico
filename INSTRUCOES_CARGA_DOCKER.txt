@@ -1,0 +1,49 @@
+INSTRUCOES PARA CARREGAR O BANCO NO POSTGRESQL DOCKER
+====================================================
+
+Execute os comandos no PowerShell, a partir da pasta do projeto:
+
+    cd "C:\Faculdade\SI\Resort-Paraiso-Atlantico"
+
+1. Confira se o container esta em execucao:
+
+    docker ps
+
+O nome esperado do container e postgres-resort. Se o nome for diferente,
+substitua postgres-resort nos comandos abaixo pelo nome exibido em CONTAINER ID
+ou NAMES.
+
+2. Carregue a estrutura das tabelas:
+
+    Get-Content schema.sql | docker exec -i postgres-resort psql -U postgres -d resort
+
+3. Opcionalmente, carregue os dados iniciais do projeto:
+
+    Get-Content dados.sql | docker exec -i postgres-resort psql -U postgres -d resort
+
+4. Carregue a massa de teste:
+
+    Get-Content carga_teste.sql | docker exec -i postgres-resort psql -U postgres -d resort
+
+IMPORTANTE
+----------
+
+A ordem correta e:
+
+    schema.sql
+    dados.sql              (opcional)
+    carga_teste.sql
+
+O arquivo carga_teste.sql apenas insere registros. Ele nao cria as tabelas.
+Se aparecer o erro:
+
+    ERROR: relation "hospedes" does not exist
+
+significa que o schema ainda nao foi carregado no banco resort. Execute o
+comando do passo 2 antes de executar a carga de teste.
+
+Se o container ainda nao existir, crie-o com:
+
+    docker run --name postgres-resort -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=resort -p 5555:5432 -d postgres
+
+Depois, carregue os arquivos seguindo a ordem indicada acima.
