@@ -206,33 +206,36 @@ with f1:
 
 hoje = date.today()
 if preset_periodo == "Últimos 30 Dias":
-    dt_inicio_default = hoje - timedelta(days=30)
-    dt_fim_default = hoje
+    data_inicio_default = hoje - timedelta(days=30)
+    data_fim_default = hoje
 elif preset_periodo == "Este Mês":
-    dt_inicio_default = hoje.replace(day=1)
-    dt_fim_default = hoje
+    data_inicio_default = hoje.replace(day=1)
+    data_fim_default = hoje
 elif preset_periodo == "Ano Atual":
-    dt_inicio_default = hoje.replace(month=1, day=1)
-    dt_fim_default = hoje
+    data_inicio_default = hoje.replace(month=1, day=1)
+    data_fim_default = hoje
 else:
-    dt_inicio_default = hoje - timedelta(days=30)
-    dt_fim_default = hoje
+    data_inicio_default = st.session_state.get("bi_dt_inc", hoje - timedelta(days=30))
+    data_fim_default = st.session_state.get("bi_dt_fim", hoje)
 
 with f2:
-    data_inicio_global = st.date_input(
+    dt_inc_val = st.date_input(
         "Data Inicial",
-        value=dt_inicio_default,
+        value=data_inicio_default,
         disabled=(preset_periodo != "Personalizado"),
         key=f"bi_dt_inc_{preset_periodo}"
     )
 
 with f3:
-    data_fim_global = st.date_input(
+    dt_fim_val = st.date_input(
         "Data Final",
-        value=dt_fim_default,
+        value=data_fim_default,
         disabled=(preset_periodo != "Personalizado"),
         key=f"bi_dt_fim_{preset_periodo}"
     )
+
+data_inicio_global = dt_inc_val if preset_periodo == "Personalizado" else data_inicio_default
+data_fim_global = dt_fim_val if preset_periodo == "Personalizado" else data_fim_default
 
 with f4:
     st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
@@ -279,48 +282,102 @@ with SessionLocal() as db:
 
     # ── 1. PAINEL EXECUTIVO (OVERVIEW) ───────────────────────────────────────
     with tab_overview:
-        kpis = service.obter_kpis_executivos()
+        kpis = service.obter_kpis_executivos(data_inicio_global, data_fim_global)
         mom = service.obter_comparativo_mom()
 
-        st.subheader("📊 Indicadores Chave de Desempenho (KPIs)")
-        k1, k2, k3, k4, k5, k6 = st.columns(6)
+        # 💡 Glossário Executivo Didático
+        with st.expander("💡 **Guia Rápido & Glossário de Indicadores Hoteleiros (Entenda as Siglas & Métricas)**", expanded=False):
+            st.markdown(
+                """
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.1rem 1.3rem; margin-bottom: 0.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                        <div>
+                            <p style="margin:0; font-weight:700; color:#0F172A; font-size:0.92rem;">🏨 RevPAR (Revenue Per Available Room)</p>
+                            <p style="margin:2px 0 0 0; color:#64748B; font-size:0.84rem; line-height:1.4;">Receita média gerada por cada suíte total do resort (ocupada ou vaga). É o principal indicador global de eficiência hoteleira.</p>
+                        </div>
+                        <div>
+                            <p style="margin:0; font-weight:700; color:#0F172A; font-size:0.92rem;">🏷️ ADR (Average Daily Rate / Diária Média)</p>
+                            <p style="margin:2px 0 0 0; color:#64748B; font-size:0.84rem; line-height:1.4;">Valor médio cobrado por diária nas suítes efetivamente vendidas (ticket médio de hospedagem).</p>
+                        </div>
+                        <div>
+                            <p style="margin:0; font-weight:700; color:#0F172A; font-size:0.92rem;">📈 Taxa de Ocupação Hoje</p>
+                            <p style="margin:2px 0 0 0; color:#64748B; font-size:0.84rem; line-height:1.4;">Porcentagem de suítes ocupadas por hóspedes no momento sobre a capacidade total do resort.</p>
+                        </div>
+                        <div>
+                            <p style="margin:0; font-weight:700; color:#0F172A; font-size:0.92rem;">💵 Saldo Líquido & Margem %</p>
+                            <p style="margin:2px 0 0 0; color:#64748B; font-size:0.84rem; line-height:1.4;">Lucro do resort (Receita Bruta minus Despesas de Insumos/Pedidos) e o percentual de rentabilidade obtido.</p>
+                        </div>
+                        <div>
+                            <p style="margin:0; font-weight:700; color:#0F172A; font-size:0.92rem;">📊 MoM (Month-over-Month)</p>
+                            <p style="margin:2px 0 0 0; color:#64748B; font-size:0.84rem; line-height:1.4;">Variação percentual do resultado comparado com o mês imediatamente anterior.</p>
+                        </div>
+                        <div>
+                            <p style="margin:0; font-weight:700; color:#0F172A; font-size:0.92rem;">🔮 Receita Projetada</p>
+                            <p style="margin:2px 0 0 0; color:#64748B; font-size:0.84rem; line-height:1.4;">Estimativa de faturamento futuro calculado sobre reservas confirmadas/pendentes com check-in posterior.</p>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-        with k1:
+        # ── Bloco 1: Financeiro Core ──
+        st.markdown("### 💰 Desempenho Financeiro Core")
+        st.caption("Visão agregada de faturamento, despesas operacionais e margem de lucro no período selecionado.")
+
+        kf1, kf2, kf3 = st.columns(3)
+
+        with kf1:
             st.metric(
-                "🟢 RECEITA BRUTA",
+                "🟢 Receita Bruta Total",
                 _fmt_moeda(kpis.receita_bruta, is_gestor),
-                delta=f"{mom['receita_delta_pct']:+.1f}% MoM"
+                delta=f"{mom['receita_delta_pct']:+.1f}% vs mês anterior (MoM)",
+                help="Faturamento total acumulado em reservas de hospedagem no período selecionado."
             )
-        with k2:
+        with kf2:
             st.metric(
-                "🔴 DESPESAS TOTAIS",
+                "🔴 Despesas Operacionais",
                 _fmt_moeda(kpis.despesas_totais, is_gestor),
-                delta=f"{mom['despesas_delta_pct']:+.1f}% MoM",
-                delta_color="inverse"
+                delta=f"{mom['despesas_delta_pct']:+.1f}% vs mês anterior (MoM)",
+                delta_color="inverse",
+                help="Custos acumulados com compras de suprimentos, estoques e insumos operacionais do resort."
             )
-        with k3:
+        with kf3:
             st.metric(
-                "💵 SALDO LÍQUIDO",
+                "💵 Saldo Líquido (Lucro)",
                 _fmt_moeda(kpis.saldo_liquido, is_gestor),
-                delta=f"Margem {_fmt_pct(kpis.margem_lucro)}"
+                delta=f"Margem Operacional {_fmt_pct(kpis.margem_lucro)}",
+                help="Resultado financeiro líquido obtido (Receita Bruta - Despesas Operacionais)."
             )
-        with k4:
+
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+
+        # ── Bloco 2: Métricas Hoteleiras ──
+        st.markdown("### 🏨 Desempenho Hoteleiro & Ocupação")
+        st.caption("Indicadores padronizados da indústria de hotelaria para acompanhamento de rentabilidade e volume.")
+
+        kh1, kh2, kh3 = st.columns(3)
+
+        with kh1:
             st.metric(
-                "🏨 REVPAR",
+                "🏨 RevPAR (Receita/Suíte Disponível)",
                 _fmt_moeda(kpis.revpar, is_gestor),
-                delta="Receita/Suíte Disponível"
+                delta="Rentabilidade por Acomodação Total",
+                help="Revenue Per Available Room: Mede a receita média por cada suíte disponível no resort (ocupada ou não)."
             )
-        with k5:
+        with kh2:
             st.metric(
-                "🏷️ ADR (DIÁRIA MÉDIA)",
+                "🏷️ ADR (Diária Média Vendida)",
                 _fmt_moeda(kpis.adr, is_gestor),
-                delta=f"{kpis.qtd_reservas} reservas válidas"
+                delta=f"{kpis.qtd_reservas} reservas válidas contabilizadas",
+                help="Average Daily Rate: Preço médio cobrado por diária nas suítes reservadas."
             )
-        with k6:
+        with kh3:
             st.metric(
-                "📈 OCUPAÇÃO HOJE",
+                "📈 Taxa de Ocupação Hoje",
                 _fmt_pct(kpis.ocupacao_hoje),
-                delta=f"{mom['ocupacao_delta_pct']:+.1f}% MoM"
+                delta=f"{mom['ocupacao_delta_pct']:+.1f}% vs mês anterior (MoM)",
+                help="Porcentagem de suítes atualmente ocupadas por hóspedes em relação à capacidade total do resort."
             )
 
         st.divider()
@@ -330,7 +387,8 @@ with SessionLocal() as db:
 
         with c_metas:
             st.subheader("🎯 Monitoramento Automático de Metas Gerenciais")
-            metas = service.obter_metas_gerenciais()
+            st.caption("Acompanhamento contínuo dos alvos estipulados para a operação hoteleira.")
+            metas = service.obter_metas_gerenciais(data_inicio_global, data_fim_global)
 
             for nome_meta, dados in metas.items():
                 val_atual = dados['atual']
@@ -351,12 +409,12 @@ with SessionLocal() as db:
 
                 st.markdown(
                     f"""
-                    <div style="background: #FFFFFF; padding: 0.9rem 1.2rem; border-radius: 14px; border: 1px solid #E2E8F0; margin-bottom: 0.65rem; box-shadow: 0 2px 8px rgba(15,23,42,0.03);">
-                        <div style="display: flex; justify-content: space-between; font-weight: 700; color: #0F172A; font-size: 0.92rem;">
-                            <span>{nome_meta}</span>
-                            <span>{fmt_val} / Meta: {fmt_meta} ({status_txt})</span>
+                    <div style="background: #FFFFFF; padding: 0.95rem 1.3rem; border-radius: 14px; border: 1px solid #E2E8F0; margin-bottom: 0.7rem; box-shadow: 0 2px 8px rgba(15,23,42,0.03);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: #0F172A; font-size: 0.92rem;">
+                            <span>🎯 {nome_meta}</span>
+                            <span style="font-size: 0.88rem; color: #475569;"><b>{fmt_val}</b> / Meta: <b>{fmt_meta}</b> <span style="font-size:0.8rem; background:#F1F5F9; padding:2px 8px; border-radius:6px; margin-left:4px;">{status_txt}</span></span>
                         </div>
-                        <div style="background: #F1F5F9; border-radius: 999px; height: 10px; margin-top: 8px; overflow: hidden;">
+                        <div style="background: #F1F5F9; border-radius: 999px; height: 10px; margin-top: 10px; overflow: hidden;">
                             <div style="background: {cor_prog}; width: {pct_progresso:.1f}%; height: 100%; border-radius: 999px; transition: width 0.4s ease;"></div>
                         </div>
                     </div>
@@ -366,20 +424,21 @@ with SessionLocal() as db:
 
         with c_projecao:
             st.subheader("🔮 Projeção Automática de Receita")
+            st.caption("Faturamento futuro estimado.")
             proj_val = kpis.receita_projetada
             st.markdown(
                 f"""
                 <div style="
                     background: linear-gradient(135deg, #0F172A 0%, #1E293B 60%, #0D9488 100%);
                     color: white;
-                    padding: 1.5rem;
+                    padding: 1.6rem;
                     border-radius: 18px;
                     box-shadow: 0 10px 25px -5px rgba(15,23,42,0.2);
                     border: 1px solid rgba(255,255,255,0.15);
                 ">
                     <div style="font-size: 0.82rem; color: #D97706; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">Faturamento Projetado (Reservas Futuras)</div>
-                    <div style="font-size: 2.1rem; font-weight: 800; color: #FFFFFF; margin: 0.4rem 0; font-family: 'Playfair Display', serif;">{_fmt_moeda(proj_val, is_gestor)}</div>
-                    <div style="font-size: 0.82rem; color: #CBD5E1; line-height: 1.4;">Calculado em tempo real sobre reservas com status <b>Confirmada</b> ou <b>Pendente</b> com check-in futuro.</div>
+                    <div style="font-size: 2.2rem; font-weight: 800; color: #FFFFFF; margin: 0.5rem 0; font-family: 'Playfair Display', serif;">{_fmt_moeda(proj_val, is_gestor)}</div>
+                    <div style="font-size: 0.84rem; color: #CBD5E1; line-height: 1.45;">Calculado em tempo real sobre reservas com status <b>Confirmada</b> ou <b>Pendente</b> com check-in futuro.</div>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -389,6 +448,7 @@ with SessionLocal() as db:
 
         # Alertas Automáticos de Desempenho
         st.subheader("🚨 Alertas Automáticos de Desempenho Operacional")
+        st.caption("Detecção inteligente de gargalos e oportunidades na operação do resort.")
         alertas = service.obter_alertas_desempenho()
 
         a_col1, a_col2 = st.columns(2)
@@ -414,8 +474,8 @@ with SessionLocal() as db:
             st.markdown("### 📑 DRE Sintético do Resort")
             st.caption("Validação em tempo real integrada ao Módulo Financeiro")
 
-            rec_tot, _ = service.repository.receita_bruta_total()
-            desp_tot, _ = service.repository.despesas_totais()
+            rec_tot, _ = service.repository.receita_bruta_total(data_inicio_global, data_fim_global)
+            desp_tot, _ = service.repository.despesas_totais(data_inicio_global, data_fim_global)
             saldo_tot = rec_tot - desp_tot
             margem_tot = (saldo_tot / rec_tot * 100.0) if rec_tot > 0 else 0.0
 
@@ -487,17 +547,29 @@ with SessionLocal() as db:
         oc1, oc2, oc3 = st.columns(3)
         with oc1:
             taxa_hoje = service.suites_ocupadas_hoje()
-            st.metric("Ocupação Hoje", _fmt_pct(taxa_hoje))
+            st.metric(
+                "Ocupação Hoje",
+                _fmt_pct(taxa_hoje),
+                help="Porcentagem de suítes atualmente ocupadas sobre a capacidade total do resort."
+            )
         with oc2:
             try:
                 taxa_per = service.suites_ocupadas_periodo(data_inicio_global, data_fim_global)
-                st.metric("Ocupação no Período Selecionado", _fmt_pct(taxa_per))
+                st.metric(
+                    "Ocupação no Período Selecionado",
+                    _fmt_pct(taxa_per),
+                    help="Taxa média de ocupação registrada dentro do intervalo de datas selecionado no topo."
+                )
             except Exception as e:
                 st.warning(str(e))
         with oc3:
             dist_stat = service.distribuicao_por_status()
             disponiveis = dist_stat.get("Disponível", 0)
-            st.metric("Suítes Disponíveis Agora", disponiveis)
+            st.metric(
+                "Suítes Disponíveis Agora",
+                disponiveis,
+                help="Quantidade de acomodações prontas e livres para receber check-in imediato."
+            )
 
         st.divider()
 
@@ -597,23 +669,39 @@ with SessionLocal() as db:
         with op1:
             try:
                 atraso = service.taxa_atraso_checkin()
-                st.metric("Taxa Atraso Check-in", _fmt_pct(atraso["taxa_atraso"]))
+                st.metric(
+                    "Taxa Atraso Check-in",
+                    _fmt_pct(atraso["taxa_atraso"]),
+                    help="Porcentagem de reservas em que a entrada do hóspede ocorreu após o horário previsto."
+                )
             except Exception:
                 st.metric("Taxa Atraso Check-in", "0.0%")
 
         with op2:
             try:
-                st.metric("Atraso Médio Check-in", f"{atraso['atraso_medio_dias']:.1f} dias")
+                st.metric(
+                    "Atraso Médio Check-in",
+                    f"{atraso['atraso_medio_dias']:.1f} dias",
+                    help="Tempo médio de atraso apurado no atendimento de entrada de hóspedes."
+                )
             except Exception:
                 st.metric("Atraso Médio Check-in", "0.0 dias")
 
         with op3:
             tempo_cham = service.tempo_medio_conclusao_chamado()
-            st.metric("Tempo Solução Chamados", f"{tempo_cham:.1f} dias")
+            st.metric(
+                "Tempo Solução Chamados",
+                f"{tempo_cham:.1f} dias",
+                help="Tempo médio que as equipes levam para concluir chamados de manutenção e limpeza."
+            )
 
         with op4:
             taxa_canc_ch = service.taxa_cancelamento_chamados()
-            st.metric("Cancelamento Chamados", _fmt_pct(taxa_canc_ch))
+            st.metric(
+                "Cancelamento Chamados",
+                _fmt_pct(taxa_canc_ch),
+                help="Porcentagem de ordens de serviço operacionais que foram canceladas antes de serem resolvidas."
+            )
 
         st.divider()
 
@@ -678,14 +766,26 @@ with SessionLocal() as db:
 
         with crm1:
             rec = service.hospedes_recorrentes()
-            st.metric("Hóspedes Recorrentes", len(rec))
+            st.metric(
+                "Hóspedes Recorrentes",
+                len(rec),
+                help="Quantidade de clientes fiéis que já realizaram mais de uma hospedagem no resort."
+            )
         with crm2:
             pico = service.mes_com_mais_cadastros()
             pico_str = f"{pico[0]} ({pico[1]} cad.)" if pico else "N/A"
-            st.metric("Mês com Mais Cadastros", pico_str)
+            st.metric(
+                "Mês com Mais Cadastros",
+                pico_str,
+                help="Mês de pico histórico de registro de novos hóspedes no sistema."
+            )
         with crm3:
             lt_evt = service.lead_time_medio_inscricao()
-            st.metric("Lead Time Inscrição Eventos", f"{lt_evt:.1f} dias")
+            st.metric(
+                "Lead Time Inscrição Eventos",
+                f"{lt_evt:.1f} dias",
+                help="Antecedência média (em dias) com que o hóspede faz a reserva em atividades de lazer."
+            )
 
         st.divider()
 
@@ -776,13 +876,31 @@ with SessionLocal() as db:
         st1, st2, st3, st4 = st.columns(4)
 
         with st1:
-            st.metric("Total de Produtos", e_resumo["total_produtos"])
+            st.metric(
+                "Total de Produtos",
+                e_resumo["total_produtos"],
+                help="Número total de itens de suprimentos e consumo cadastrados."
+            )
         with st2:
-            st.metric("⚠️ Estoque Baixo/Crítico", e_resumo["estoque_baixo"], delta_color="inverse")
+            st.metric(
+                "⚠️ Estoque Baixo/Crítico",
+                e_resumo["estoque_baixo"],
+                delta_color="inverse",
+                help="Quantidade de itens cuja quantidade atual está abaixo do limite de segurança."
+            )
         with st3:
-            st.metric("🚫 Sem Estoque", e_resumo["sem_estoque"], delta_color="inverse")
+            st.metric(
+                "🚫 Sem Estoque",
+                e_resumo["sem_estoque"],
+                delta_color="inverse",
+                help="Quantidade de produtos zerados no inventário necessitando de compra imediata."
+            )
         with st4:
-            st.metric("💰 Inventário Total", _fmt_moeda(e_resumo["valor_inventario"], is_gestor))
+            st.metric(
+                "💰 Inventário Total",
+                _fmt_moeda(e_resumo["valor_inventario"], is_gestor),
+                help="Valor financeiro total investido nos itens estocados."
+            )
 
         st.divider()
 

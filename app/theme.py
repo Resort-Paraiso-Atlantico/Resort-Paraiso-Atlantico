@@ -211,26 +211,34 @@ def aplicar_tema():
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
             border-radius: 14px;
-            padding: 0.8rem 1rem !important;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+            padding: 1rem 1.1rem !important;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
             min-width: 0 !important;
+            transition: all 0.2s ease;
+        }}
+        [data-testid="stMetric"]:hover {{
+            border-color: #CBD5E1;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
         }}
         [data-testid="stMetricLabel"] p {{
-            color: {TEXT_MUTED} !important;
-            font-weight: 600 !important;
-            font-size: 0.8rem !important;
+            color: #475569 !important;
+            font-weight: 700 !important;
+            font-size: 0.82rem !important;
             text-transform: uppercase;
             letter-spacing: 0.04em;
         }}
         [data-testid="stMetricValue"],
         [data-testid="stMetricValue"] * {{
             color: {PRIMARY_DARK} !important;
-            font-weight: 700 !important;
-            font-size: clamp(1.05rem, 1.6vw, 1.4rem) !important;
-            white-space: normal !important;
-            word-break: break-word !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
+            font-weight: 800 !important;
+            font-size: clamp(1.15rem, 1.8vw, 1.5rem) !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }}
+        [data-testid="stMetricDelta"] {{
+            font-size: 0.82rem !important;
+            font-weight: 600 !important;
         }}
 
         /* Card Padronizado */

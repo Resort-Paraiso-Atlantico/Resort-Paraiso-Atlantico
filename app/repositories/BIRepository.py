@@ -331,23 +331,21 @@ class BIRepository:
 
     # ---------- Financeiro & Projeções ----------
 
-    def receita_bruta_total(self) -> tuple[float, int]:
-        """Retorna (valor_total_receitas, qtd_reservas_validas)."""
-        reservas = (
-            self.db.query(Reserva)
-            .filter(Reserva.status.in_(STATUS_RECEITA_VALIDA))
-            .all()
-        )
+    def receita_bruta_total(self, data_inicio: date | None = None, data_fim: date | None = None) -> tuple[float, int]:
+        """Retorna (valor_total_receitas, qtd_reservas_validas) filtrados pelo período se fornecido."""
+        query = self.db.query(Reserva).filter(Reserva.status.in_(STATUS_RECEITA_VALIDA))
+        if data_inicio is not None and data_fim is not None:
+            query = query.filter(Reserva.data_reserva >= data_inicio, Reserva.data_reserva <= data_fim)
+        reservas = query.all()
         total = sum(r.valor_total or 0.0 for r in reservas)
         return float(total), len(reservas)
 
-    def despesas_totais(self) -> tuple[float, int]:
-        """Retorna (valor_total_despesas, qtd_pedidos_validos)."""
-        pedidos = (
-            self.db.query(PedidoCompra)
-            .filter(~PedidoCompra.status.in_(STATUS_DESPESA_EXCLUIDOS))
-            .all()
-        )
+    def despesas_totais(self, data_inicio: date | None = None, data_fim: date | None = None) -> tuple[float, int]:
+        """Retorna (valor_total_despesas, qtd_pedidos_validos) filtrados pelo período se fornecido."""
+        query = self.db.query(PedidoCompra).filter(~PedidoCompra.status.in_(STATUS_DESPESA_EXCLUIDOS))
+        if data_inicio is not None and data_fim is not None:
+            query = query.filter(PedidoCompra.data_pedido >= data_inicio, PedidoCompra.data_pedido <= data_fim)
+        pedidos = query.all()
         total = sum(p.valor_total or 0.0 for p in pedidos)
         return float(total), len(pedidos)
 
