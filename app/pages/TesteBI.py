@@ -223,7 +223,7 @@ with f2:
         "Data Inicial",
         value=dt_inicio_default,
         disabled=(preset_periodo != "Personalizado"),
-        key="bi_dt_inc"
+        key=f"bi_dt_inc_{preset_periodo}"
     )
 
 with f3:
@@ -231,7 +231,7 @@ with f3:
         "Data Final",
         value=dt_fim_default,
         disabled=(preset_periodo != "Personalizado"),
-        key="bi_dt_fim"
+        key=f"bi_dt_fim_{preset_periodo}"
     )
 
 with f4:

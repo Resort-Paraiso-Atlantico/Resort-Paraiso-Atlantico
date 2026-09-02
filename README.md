@@ -71,40 +71,65 @@ psql -U postgres -c "CREATE DATABASE resort;"
 
 ---
 
-## 🔄 Restauração do Banco de Dados
+## 🔄 Configuração Inicial do Banco de Dados
 
-Para carregar a estrutura das tabelas e a massa de dados inicial de teste:
+### 1️⃣ Primeira Execução (Criação Automática do Schema)
 
-### Opção A: Usando os Arquivos SQL (`schema.sql` e `dados.sql`)
+Na **primeira execução**, o SQLAlchemy criará automaticamente todas as tabelas do banco. Execute:
+
+```bash
+streamlit run main.py
+```
+
+O arquivo `main.py` contém a seguinte instrução que cria o schema automaticamente:
+```python
+from app.models.Base import Base
+Base.metadata.create_all(engine)  # Cria todas as tabelas
+```
+
+> ✅ **Verificar**: Você verá as tabelas criadas no PostgreSQL após esta primeira execução.
+
+---
+
+### 2️⃣ Carregar Dados de Teste (Opcional)
+
+Após criar o schema, você pode popularo banco com dados de teste usando o arquivo `dados_backup.sql`:
 
 **Se estiver usando PostgreSQL Nativo (Sem Docker):**
 ```bash
-psql -U postgres -d resort -f schema.sql
-psql -U postgres -d resort -f dados.sql
+psql -U postgres -d resort -f dados_backup.sql
 ```
 
 **Se estiver usando via Docker (Windows PowerShell):**
 ```powershell
-Get-Content schema.sql | docker exec -i postgres-resort psql -U postgres -d resort
-Get-Content dados.sql | docker exec -i postgres-resort psql -U postgres -d resort
+Get-Content dados_backup.sql | docker exec -i postgres-resort psql -U postgres -d resort
 ```
 
 **Se estiver usando via Docker (Linux / Git Bash / macOS):**
 ```bash
-docker exec -i postgres-resort psql -U postgres -d resort < schema.sql
-docker exec -i postgres-resort psql -U postgres -d resort < dados.sql
+docker exec -i postgres-resort psql -U postgres -d resort < dados_backup.sql
 ```
 
-### Opção B: Usando o Arquivo de Backup Completo (`banco.backup`)
+---
 
-**Se estiver usando PostgreSQL Nativo (Sem Docker):**
+### 3️⃣ Backup Completo (Restauração Futura)
+
+Se precisar fazer backup ou restaurar o banco completo, use `backup_banco.sql`:
+
+**Exportar todo o banco:**
 ```bash
-pg_restore -U postgres -d resort banco.backup
+docker exec postgres-resort pg_dump -U postgres resort > backup_banco.sql
 ```
 
-**Se estiver usando via Docker:**
+**Restaurar a partir do backup:**
+```powershell
+# Windows PowerShell
+Get-Content backup_banco.sql | docker exec -i postgres-resort psql -U postgres -d resort
+```
+
 ```bash
-docker exec -i postgres-resort pg_restore -U postgres -d resort banco.backup
+# Linux / macOS
+docker exec -i postgres-resort psql -U postgres -d resort < backup_banco.sql
 ```
 
 ---
@@ -161,10 +186,89 @@ Se tudo estiver configurado corretamente, o sistema irá se conectar ao banco Po
 
 ---
 
-## 📂 Arquivos Entregues do Banco de Dados
+## 📂 Arquivos de Banco de Dados
 
-- **`schema.sql`**: Arquivo com a estrutura completa do banco de dados (tabelas, chaves primárias/estrangeiras, sequências e restrições).
-- **`dados.sql`**: Arquivo com a massa de dados inicial de teste para todas as tabelas.
-- **`banco.backup`**: Arquivo de backup completo em formato customizado do PostgreSQL (`pg_dump -Fc`).
+- **`backup_banco.sql`**: Backup completo do banco (schema + dados). Use este arquivo para restaurar o banco em caso de perda de dados.
+- **`dados_backup.sql`**: Somente os dados (sem schema). Use após criar o schema pela primeira execução do sistema.
 - **`.env.exemplo`**: Modelo do arquivo de configurações de variáveis de ambiente do banco de dados.
 - **`.streamlit/secrets.toml.exemplo`**: Modelo do arquivo de segredos de autenticação do Streamlit.
+
+---
+
+## ⚡ Quick Start (Configuração Rápida)
+
+Siga os passos abaixo para começar a usar o sistema em minutos:
+
+### Passo 1: Preparar o Ambiente
+```bash
+# Clonar ou abrir o projeto
+cd c:\Faculdade\SI\Resort-Paraiso-Atlantico
+
+# Criar e ativar o ambiente virtual
+python -m venv venv
+.\venv\Scripts\Activate
+
+# Instalar dependências
+pip install -r requirements.txt
+```
+
+### Passo 2: Configurar PostgreSQL (Docker)
+```bash
+# Criar o container (se não existir)
+docker run --name postgres-resort \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=resort \
+  -p 5555:5432 \
+  -d postgres
+
+# Verificar se o container está rodando
+docker ps
+```
+
+### Passo 3: Configurar Variáveis de Ambiente
+```bash
+# Copiar arquivo de exemplo
+cp .env.exemplo .env
+
+# Verificar se o arquivo foi criado com os valores:
+# DB_HOST=localhost
+# DB_PORT=5555
+# DB_NAME=resort
+# DB_USER=postgres
+# DB_PASSWORD=postgres
+```
+
+### Passo 4: Primeira Execução (Cria o Schema)
+```bash
+streamlit run main.py
+# O sistema criará automaticamente todas as tabelas no banco de dados
+# Pressione Ctrl+C para parar quando desejar
+```
+
+### Passo 5: Carregar Dados de Teste (Opcional)
+```powershell
+# No PowerShell, na pasta do projeto
+Get-Content dados_backup.sql | docker exec -i postgres-resort psql -U postgres -d resort
+```
+
+### Passo 6: Executar o Sistema
+```bash
+streamlit run main.py
+# Abra o navegador em http://localhost:8501
+```
+
+---
+
+## ✅ Checklist de Verificação
+
+Antes de reportar problemas, verifique:
+
+- [ ] PostgreSQL está rodando (`docker ps` deve listar `postgres-resort`)
+- [ ] `.env` foi criado com os valores corretos
+- [ ] Primeira execução foi feita (`streamlit run main.py`)
+- [ ] Tabelas foram criadas no banco (verifique com `psql` ou DBeaver)
+- [ ] Dados de teste foram carregados (opcional, verifique com `SELECT COUNT(*) FROM hospedes;`)
+- [ ] Porta 5555 (PostgreSQL) e 8501 (Streamlit) estão livres
+
+---
